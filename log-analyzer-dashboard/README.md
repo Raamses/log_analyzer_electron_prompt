@@ -1,73 +1,52 @@
-# React + TypeScript + Vite
+# IIS/Azure APGW Log Analyzer Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is a desktop application for analyzing IIS and Azure Application Gateway logs. It provides a user-friendly interface to help you quickly identify trends, errors, and performance metrics from your log files.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+-   **Native File Access:** Uses Electron's native file dialog for a seamless user experience.
+-   **Comprehensive Analytics:** Calculates total requests, time span, error rates, and more.
+-   **Interactive Dashboard:** Visualizes key metrics to help you understand your application's performance at a glance.
+-   **Virtualized Log Viewer:** Efficiently displays large log files without performance degradation.
 
-## React Compiler
+## Getting Started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
 
-## Expanding the ESLint configuration
+### Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+-   [Node.js](https://nodejs.org/) (v18 or later)
+-   [npm](https://www.npmjs.com/) (v9 or later)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Installing
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1.  **Clone the repository:**
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+    ```sh
+    git clone https://github.com/your-username/log-analyzer-dashboard.git
+    cd log-analyzer-dashboard
+    ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2.  **Install the dependencies:**
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+    ```sh
+    npm install
+    ```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Available Scripts
+
+In the project directory, you can run:
+
+-   `npm run dev`: Runs the app in the development mode.
+-   `npm run build`: Builds the app for production to the `dist` folder.
+-   `npm test`: Launches the test runner in the interactive watch mode.
+-   `npm run lint`: Lints the code using ESLint.
+
+## Built With
+
+-   [React](https://reactjs.org/) - The web framework used
+-   [TypeScript](https://www.typescriptlang.org/) - Superset of JavaScript that adds static types
+-   [Electron](https://www.electronjs.org/) - Framework for creating native applications with web technologies
+-   [Vite](https://vitejs.dev/) - Next-generation front-end tooling
+-   [Tailwind CSS](https://tailwindcss.com/) - A utility-first CSS framework
+-   [Vitest](https://vitest.dev/) - A blazing fast unit test framework powered by Vite
