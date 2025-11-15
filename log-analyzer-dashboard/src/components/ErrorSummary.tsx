@@ -1,4 +1,4 @@
-import SummaryCard from './SummaryCard';
+import StatCard from './StatCard';
 
 interface ErrorSummaryProps {
     analytics: {
@@ -15,10 +15,10 @@ const ErrorSummary = ({ analytics, onCodeClick }: ErrorSummaryProps) => (
     <div className="bg-gray-800 p-4 rounded-lg col-span-1 md:col-span-2 lg:col-span-1">
         <h3 className="text-lg font-semibold mb-3">Error Summary</h3>
         <div className="grid grid-cols-2 gap-4">
-            <SummaryCard title="Total Errors" value={analytics.totalErrors} />
-            <SummaryCard title="Error Rate" value={analytics.errorRate.toFixed(2)} unit="%" />
-            <SummaryCard title="Client Errors (4xx)" value={analytics.clientErrors} />
-            <SummaryCard title="Server Errors (5xx)" value={analytics.serverErrors} />
+            <StatCard title="Total Errors" value={analytics.totalErrors} description="Total failed requests." trend="neutral" />
+            <StatCard title="Error Rate" value={analytics.errorRate.toFixed(2)} unit="%" description="Percentage of failed requests." trend="neutral" />
+            <StatCard title="Client Errors (4xx)" value={analytics.clientErrors} description="Client-side errors." trend="neutral" />
+            <StatCard title="Server Errors (5xx)" value={analytics.serverErrors} description="Server-side errors." trend="neutral" />
         </div>
         <div className="mt-4">
             <h4 className="font-semibold">Error Code Breakdown</h4>

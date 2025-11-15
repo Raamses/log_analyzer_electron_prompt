@@ -83,3 +83,5 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         }
     };
 };
+
+export type LogAnalytics = NonNullable<ReturnType<typeof analyzeLogs>>;
