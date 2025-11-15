@@ -2,4 +2,5 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('electron', {
   openFile: () => ipcRenderer.invoke('open-file'),
+  readFile: (buffer: ArrayBuffer) => ipcRenderer.invoke('read-file', buffer),
 });

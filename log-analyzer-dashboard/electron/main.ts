@@ -69,9 +69,17 @@ ipcMain.handle('open-file', async () => {
   });
 
   if (!canceled && filePaths.length > 0) {
-    const content = fs.readFileSync(filePaths[0], 'utf-8');
-    return content;
+    return fs.readFileSync(filePaths[0], 'utf-8');
   }
 
   return null;
+});
+
+ipcMain.handle('read-file', async (_, fileBuffer) => {
+    try {
+        return Buffer.from(fileBuffer).toString('utf-8');
+    } catch (error) {
+        console.error('Failed to read file:', error);
+        return null;
+    }
 });
