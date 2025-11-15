@@ -115,3 +115,7 @@ dist/
 
 # Vitest coverage directory
 coverage/
+
+# Custom log files
+npm-install.log
+vite.log
