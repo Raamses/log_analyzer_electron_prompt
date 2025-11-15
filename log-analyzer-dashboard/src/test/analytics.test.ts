@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { analyzeLogs } from '../utils/analytics';
-import { LogEntry } from '../utils/parser';
+import type { LogEntry } from '../utils/parser';
 
 describe('analytics', () => {
     it('should calculate analytics correctly', () => {

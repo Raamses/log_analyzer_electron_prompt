@@ -1,0 +1,48 @@
+
+  VITE v7.2.2  ready in 254 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+vite v7.2.2 building client environment for development...
+
+watching for file changes...
+vite v7.2.2 building client environment for development...
+
+watching for file changes...
+
+build started...
+
+build started...
+transforming...
+✓ 1 modules transformed.
+transforming...
+✓ 1 modules transformed.
+rendering chunks...
+rendering chunks...
+computing gzip size...
+computing gzip size...
+dist-electron/preload.js  0.16 kB │ gzip: 0.14 kB
+built in 304ms.
+dist-electron/main.js  1.46 kB │ gzip: 0.72 kB
+built in 306ms.
+App threw an error during load
+ReferenceError: __dirname is not defined in ES module scope
+This file is being treated as an ES module because it has a '.js' file extension and '/app/log-analyzer-dashboard/package.json' contains "type": "module". To treat it as a CommonJS script, rename it to use the '.cjs' file extension.
+    at file:///app/log-analyzer-dashboard/dist-electron/main.js:4:30
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+    at async loadApplicationPackage (file:///app/log-analyzer-dashboard/node_modules/electron/dist/resources/default_app.asar/main.js:127:9)
+    at async file:///app/log-analyzer-dashboard/node_modules/electron/dist/resources/default_app.asar/main.js:240:9
+[1m[47m[31mA JavaScript error occurred in the main process
+[30mUncaught Exception:
+ReferenceError: __dirname is not defined in ES module scope
+This file is being treated as an ES module because it has a '.js' file extension and '/app/log-analyzer-dashboard/package.json' contains "type": "module". To treat it as a CommonJS script, rename it to use the '.cjs' file extension.
+    at file:///app/log-analyzer-dashboard/dist-electron/main.js:4:30
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+    at async loadApplicationPackage (file:///app/log-analyzer-dashboard/node_modules/electron/dist/resources/default_app.asar/main.js:127:9)
+    at async file:///app/log-analyzer-dashboard/node_modules/electron/dist/resources/default_app.asar/main.js:240:9
+[0m[25983:1115/150556.357521:ERROR:ui/ozone/platform/x11/ozone_platform_x11.cc:249] Missing X server or $DISPLAY
+[25983:1115/150556.357599:ERROR:ui/aura/env.cc:257] The platform failed to initialize.  Exiting.

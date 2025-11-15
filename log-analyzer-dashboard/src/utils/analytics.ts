@@ -1,4 +1,4 @@
-import { LogEntry } from './parser';
+import type { LogEntry } from './parser';
 
 export const analyzeLogs = (logs: LogEntry[]) => {
     if (logs.length === 0) return null;

@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import SummaryCard from './components/SummaryCard';
 import ErrorSummary from './components/ErrorSummary';
 import TrafficSegmentation from './components/TrafficSegmentation';
 import ServerThroughput from './components/ServerThroughput';
 import VirtualizedLogViewer from './components/VirtualizedLogViewer';
-import { parseLogs, LogEntry } from './utils/parser';
+import { parseLogs, type LogEntry } from './utils/parser';
 import { analyzeLogs } from './utils/analytics';
 
 const httpStatusCodes: { [key: number]: string } = { 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 500: "Internal Server Error", 502: "Bad Gateway", 503: "Service Unavailable", 504: "Gateway Timeout" };
@@ -25,7 +25,6 @@ function App() {
   const [error, setError] = useState('');
   const [isParsed, setIsParsed] = useState(false);
   const [modalInfo, setModalInfo] = useState<{ title: string; content: string } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const analytics = useMemo(() => analyzeLogs(parsedLogs), [parsedLogs]);
 
@@ -42,23 +41,10 @@ function App() {
     }
   }, [logContent]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => setLogContent(event.target?.result as string);
-      reader.readAsText(file);
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => setLogContent(e.clipboardData.getData('text'));
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => setLogContent(event.target?.result as string);
-      reader.readAsText(file);
+  const handleOpenFile = async () => {
+    const content = await window.electron.openFile();
+    if (content) {
+      setLogContent(content);
     }
   };
 
@@ -68,9 +54,9 @@ function App() {
     <div className="container mx-auto p-4">
       {modalInfo && <Modal {...modalInfo} onClose={() => setModalInfo(null)} />}
       <h1 className="text-3xl font-bold text-center mb-6">IIS/Azure APGW Log Analyzer</h1>
-      <div className={`bg-gray-800 p-4 rounded-lg border-2 border-dashed border-gray-600 hover:border-gray-400 transition-all duration-300 ${isParsed ? 'h-24' : 'h-60'}`} onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
-          <textarea className={`w-full bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 ${isParsed ? 'h-0 opacity-0' : 'h-40'}`} placeholder="Paste/drop logs or select file" value={logContent} onChange={(e) => setLogContent(e.target.value)} onPaste={handlePaste} readOnly={isParsed}></textarea>
-          {isParsed ? (<div className="text-center text-green-400"><p>Parsed {parsedLogs.length} entries.</p><button onClick={() => setLogContent('')} className="text-blue-400 underline mt-2">Clear</button></div>) : (<div className="mt-4 text-center"><button className="bg-blue-600 hover:bg-blue-700 font-bold py-2 px-4 rounded-lg" onClick={() => fileInputRef.current?.click()}>Select File</button><input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".log,.txt,.csv" /></div>)}
+      <div className={`bg-gray-800 p-4 rounded-lg border-2 border-dashed border-gray-600 hover:border-gray-400 transition-all duration-300 ${isParsed ? 'h-24' : 'h-60'}`}>
+          <textarea className={`w-full bg-gray-700 text-white p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 ${isParsed ? 'h-0 opacity-0' : 'h-40'}`} placeholder="Select a log file to begin" value={logContent} readOnly></textarea>
+          {isParsed ? (<div className="text-center text-green-400"><p>Parsed {parsedLogs.length} entries.</p><button onClick={() => setLogContent('')} className="text-blue-400 underline mt-2">Clear</button></div>) : (<div className="mt-4 text-center"><button className="bg-blue-600 hover:bg-blue-700 font-bold py-2 px-4 rounded-lg" onClick={handleOpenFile}>Select File</button></div>)}
       </div>
       {error && <div className="mt-4 text-center text-red-400 bg-red-900 p-3 rounded-lg">{error}</div>}
       {analytics && (
