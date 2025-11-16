@@ -31,21 +31,19 @@ function App() {
   const [logContent, setLogContent] = useState('');
   const [parsedLogs, setParsedLogs] = useState<LogEntry[]>([]);
   const [error, setError] = useState('');
-  const [isParsed, setIsParsed] = useState(false);
   const [modalInfo, setModalInfo] = useState<{ title: string; content: string } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const analytics = useMemo(() => analyzeLogs(parsedLogs), [parsedLogs]);
+  const isParsed = parsedLogs.length > 0;
 
   useEffect(() => {
     if (logContent) {
       const { logs, error } = parseLogs(logContent);
       setParsedLogs(logs);
       setError(error);
-      setIsParsed(logs.length > 0);
     } else {
       setParsedLogs([]);
-      setIsParsed(false);
       setError('');
     }
   }, [logContent]);
@@ -74,8 +72,8 @@ function App() {
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
-      setIsDragging(false);
-
+      setIsDragging(.
+.
       const files = e.dataTransfer.files;
       if (files && files.length > 0) {
           const reader = new FileReader();
@@ -103,7 +101,6 @@ function App() {
       </header>
 
       <FileUploader
-          isParsed={isParsed}
           parsedLogsCount={parsedLogs.length}
           onOpenFile={handleOpenFile}
           onClear={handleClear}
@@ -115,7 +112,7 @@ function App() {
 
       {error && <div className="mt-6 text-center text-destructive bg-destructive/10 p-4 rounded-lg">{error}</div>}
 
-      {analytics && isParsed && (
+      {isParsed && (
         <main className="mt-8">
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatCard title="Total Requests" value={analytics.totalRequests} />

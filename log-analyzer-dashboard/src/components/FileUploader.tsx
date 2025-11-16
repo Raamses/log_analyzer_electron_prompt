@@ -9,27 +9,35 @@ interface FileUploaderProps {
     onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
     onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
     isDragging: boolean;
+    logContent: string;
 }
 
-const FileUploader: React.FC<FileUploaderProps> = ({ isParsed, parsedLogsCount, onOpenFile, onClear, onDragOver, onDragLeave, onDrop, isDragging }) => {
+const FileUploader: React.FC<FileUploaderProps> = ({ isParsed, parsedLogsCount, onOpenFile, onClear, onDragOver, onDragLeave, onDrop, isDragging, logContent }) => {
     return (
         <div
+            onClick={onOpenFile}
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}
-            className={`relative group bg-card border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 ${isDragging ? 'border-primary bg-primary/10' : 'border-border/50 hover:border-primary'}`}
+            className={`cursor-pointer bg-gray-900 p-6 rounded-xl border-2 border-dashed transition-all duration-300 ${isParsed ? 'h-28' : 'h-64'} ${isDragging ? 'border-blue-600' : 'border-gray-700 hover:border-gray-500'}`}
         >
+            <textarea
+                className={`w-full bg-gray-800 text-white p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 ${isParsed ? 'h-0 opacity-0' : 'h-40'}`}
+                placeholder="Select or drop a log file to begin"
+                value={logContent}
+                readOnly
+            />
             {isParsed ? (
-                <div className="flex flex-col items-center justify-center h-full">
-                    <p className="text-lg text-success font-semibold">Successfully parsed {parsedLogsCount} log entries.</p>
-                    <button onClick={onClear} className="mt-4 bg-primary text-primary-foreground font-bold py-2 px-4 rounded-md hover:bg-primary/90 transition-colors">
+                <div className="text-center text-green-400">
+                    <p className="text-lg">Successfully parsed {parsedLogsCount} log entries.</p>
+                    <button onClick={onClear} className="text-blue-400 hover:underline mt-2">
                         Analyze another file
                     </button>
                 </div>
             ) : (
-                <div onClick={onOpenFile} className="cursor-pointer">
-                    <p className="text-muted-foreground mb-4">Drag & drop a log file here, or click to select</p>
-                    <button className="bg-secondary text-secondary-foreground font-bold py-3 px-6 rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                <div className="mt-4 text-center">
+                    <p className="text-gray-400">Drag & drop a log file here, or click to select</p>
+                    <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg mt-4">
                         Select File
                     </button>
                 </div>
