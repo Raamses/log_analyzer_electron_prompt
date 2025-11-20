@@ -8,11 +8,13 @@ interface FileUploaderProps {
     onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
     onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
     onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+    onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
     isDragging: boolean;
     logContent: string;
+    fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
-const FileUploader: React.FC<FileUploaderProps> = ({ isParsed, parsedLogsCount, onOpenFile, onClear, onDragOver, onDragLeave, onDrop, isDragging, logContent }) => {
+const FileUploader: React.FC<FileUploaderProps> = ({ isParsed, parsedLogsCount, onOpenFile, onClear, onDragOver, onDragLeave, onDrop, onFileSelect, isDragging, logContent, fileInputRef }) => {
     return (
         <div
             onClick={onOpenFile}
@@ -21,6 +23,13 @@ const FileUploader: React.FC<FileUploaderProps> = ({ isParsed, parsedLogsCount, 
             onDrop={onDrop}
             className={`cursor-pointer bg-gray-900 p-6 rounded-xl border-2 border-dashed transition-all duration-300 ${isParsed ? 'h-28' : 'h-64'} ${isDragging ? 'border-blue-600' : 'border-gray-700 hover:border-gray-500'}`}
         >
+            <input
+                type="file"
+                ref={fileInputRef}
+                onChange={onFileSelect}
+                className="hidden"
+                accept=".log"
+            />
             <textarea
                 className={`w-full bg-gray-800 text-white p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 ${isParsed ? 'h-0 opacity-0' : 'h-40'}`}
                 placeholder="Select or drop a log file to begin"

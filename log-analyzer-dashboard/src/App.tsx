@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import SummaryCard from './components/SummaryCard';
 import ErrorSummary from './components/ErrorSummary';
 import TrafficSegmentation from './components/TrafficSegmentation';
@@ -27,6 +27,7 @@ function App() {
   const [isParsed, setIsParsed] = useState(false);
   const [modalInfo, setModalInfo] = useState<{ title: string; content: string } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const analytics = useMemo(() => analyzeLogs(parsedLogs), [parsedLogs]);
 
@@ -43,11 +44,15 @@ function App() {
     }
   }, [logContent]);
 
-  const handleOpenFile = async () => {
-    const content = await window.electron.openFile();
-    if (content) {
-      setLogContent(content);
-    }
+  const handleOpenFile = () => fileInputRef.current?.click();
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => setLogContent(event.target?.result as string);
+          reader.readAsText(file);
+      }
   };
 
   const handleCodeClick = (code: string) => setModalInfo({ title: `HTTP ${code}`, content: httpStatusCodes[parseInt(code, 10)] || "No description available." });
@@ -64,21 +69,15 @@ function App() {
       setIsDragging(false);
   };
 
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(false);
-
-      const files = e.dataTransfer.files;
-      if (files && files.length > 0) {
+      const file = e.dataTransfer.files?.[0];
+      if (file) {
           const reader = new FileReader();
-          reader.onload = async () => {
-              const content = await window.electron.readFile(reader.result as ArrayBuffer);
-              if (content) {
-                  setLogContent(content);
-              }
-          };
-          reader.readAsArrayBuffer(files[0]);
+          reader.onload = (event) => setLogContent(event.target?.result as string);
+          reader.readAsText(file);
       }
   };
 
@@ -103,8 +102,10 @@ function App() {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
+          onFileSelect={handleFileSelect}
           isDragging={isDragging}
           logContent={logContent}
+          fileInputRef={fileInputRef}
       />
 
       {error && <div className="mt-6 text-center text-red-400 bg-red-900/50 p-4 rounded-xl">{error}</div>}
