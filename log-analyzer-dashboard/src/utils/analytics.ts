@@ -62,6 +62,31 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         return { mean: mean.toFixed(2), max: max.toFixed(2) };
     };
 
+    // Generate Time Series Data for Charts
+    const timeSeriesData: { timestamp: number; requests: number; errors: number; avgLatency: number }[] = [];
+    const timeMap = new Map<number, { requests: number; errors: number; totalLatency: number }>();
+
+    // Binning by minute (60000ms)
+    sortedLogs.forEach(log => {
+        const bin = Math.floor(log.timestamp.getTime() / 60000) * 60000;
+        const existing = timeMap.get(bin) || { requests: 0, errors: 0, totalLatency: 0 };
+        existing.requests++;
+        if (log.statusCode >= 400) existing.errors++;
+        existing.totalLatency += log.timeTaken;
+        timeMap.set(bin, existing);
+    });
+
+    Array.from(timeMap.entries())
+        .sort((a, b) => a[0] - b[0])
+        .forEach(([timestamp, data]) => {
+            timeSeriesData.push({
+                timestamp,
+                requests: data.requests,
+                errors: data.errors,
+                avgLatency: data.totalLatency / data.requests
+            });
+        });
+
     return {
         totalRequests,
         timeSpan: (timeSpan / 1000 / 60).toFixed(2),
@@ -80,6 +105,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
             rpm1: getThroughput(1),
             rpm15: getThroughput(15),
             rpm60: getThroughput(60),
-        }
+        },
+        timeSeriesData
     };
 };
