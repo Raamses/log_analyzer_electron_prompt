@@ -1,5 +1,4 @@
-import { useState, useRef, useMemo, FC } from 'react';
-import ContextMenu, { ContextMenuItem } from './ContextMenu';
+import { useState, useRef, useMemo } from 'react';
 
 interface LogEntry {
     timestamp: Date;
@@ -17,8 +16,7 @@ interface VirtualizedLogViewerProps {
 
 const VirtualizedLogViewer = ({ logs, rowHeight = 32, containerHeight = 500 }: VirtualizedLogViewerProps) => {
     const [scrollTop, setScrollTop] = useState(0);
-    const [filter, setFilter] = useState('');
-    const [contextMenu, setContextMenu] = useState<{ x: number; y: number; log: LogEntry } | null>(null);
+    const [filter] = useState('');
     const containerRef = useRef<HTMLDivElement>(null);
 
     const filteredLogs = useMemo(() =>
@@ -43,16 +41,6 @@ const VirtualizedLogViewer = ({ logs, rowHeight = 32, containerHeight = 500 }: V
         return 'text-green-400';
     };
 
-    const handleContextMenu = (e: React.MouseEvent, log: LogEntry) => {
-        e.preventDefault();
-        setContextMenu({ x: e.clientX, y: e.clientY, log });
-    };
-
-    const handleFilterBy = (field: keyof LogEntry, value: string | number) => {
-        setFilter(String(value));
-        setContextMenu(null);
-    };
-
     return (
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
              <div className="grid grid-cols-12 bg-gray-800/50 border-b border-gray-800 text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-2">
@@ -74,7 +62,7 @@ const VirtualizedLogViewer = ({ logs, rowHeight = 32, containerHeight = 500 }: V
                         {visibleLogs.map((log, index) => (
                             <div
                                 key={startIndex + index}
-                                className="grid grid-cols-12 items-center px-4 border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors text-sm font-mono"
+                                className="log-entry grid grid-cols-12 items-center px-4 border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors text-sm font-mono"
                                 style={{ height: `${rowHeight}px` }}
                             >
                                 <div className="col-span-2 text-gray-400 truncate">

@@ -71,8 +71,8 @@ export const useLogAnalysis = () => {
     });
   }, [parsedLogs, isParsed, filters]);
 
-  // Analyze Filtered Logs
-  const analytics = useMemo(() => analyzeLogs(filteredLogs), [filteredLogs]);
+  // Analyze All Parsed Logs for dashboard stats
+  const analytics = useMemo(() => analyzeLogs(parsedLogs), [parsedLogs]);
 
   // Function to update raw content (from file upload)
   const processFileContent = (content: string) => {

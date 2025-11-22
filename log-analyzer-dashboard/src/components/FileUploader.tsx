@@ -10,11 +10,10 @@ interface FileUploaderProps {
     onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
     onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
     isDragging: boolean;
-    logContent: string;
     fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
-const FileUploader: React.FC<FileUploaderProps> = ({ isParsed, parsedLogsCount, onOpenFile, onClear, onDragOver, onDragLeave, onDrop, onFileSelect, isDragging, logContent, fileInputRef }) => {
+const FileUploader: React.FC<FileUploaderProps> = ({ isParsed, parsedLogsCount, onOpenFile, onClear, onDragOver, onDragLeave, onDrop, onFileSelect, isDragging, fileInputRef }) => {
     return (
         <div className="bg-gray-800/50 p-6 rounded-lg border border-gray-700">
             <div
