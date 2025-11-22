@@ -1,14 +1,14 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useRef, useState } from 'react';
+import { useLogAnalysis } from './hooks/useLogAnalysis';
+import DashboardLayout from './components/DashboardLayout';
+import FileUploader from './components/FileUploader';
 import SummaryCard from './components/SummaryCard';
-import ErrorSummary from './components/ErrorSummary';
 import TrafficSegmentation from './components/TrafficSegmentation';
 import ServerThroughput from './components/ServerThroughput';
 import VirtualizedLogViewer from './components/VirtualizedLogViewer';
-import { parseLogs, type LogEntry } from './utils/parser';
-import { analyzeLogs } from './utils/analytics';
-import FileUploader from './components/FileUploader';
-
-const httpStatusCodes: { [key: number]: string } = { 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 500: "Internal Server Error", 502: "Bad Gateway", 503: "Service Unavailable", 504: "Gateway Timeout" };
+import ThroughputChart from './components/charts/ThroughputChart';
+import StatusDistributionChart from './components/charts/StatusDistributionChart';
+import { Activity, Clock, AlertTriangle, FileText } from 'lucide-react';
 
 const Modal = ({ title, content, onClose }: { title: string, content: string, onClose: () => void }) => (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
@@ -21,28 +21,24 @@ const Modal = ({ title, content, onClose }: { title: string, content: string, on
 );
 
 function App() {
-  const [logContent, setLogContent] = useState('');
-  const [parsedLogs, setParsedLogs] = useState<LogEntry[]>([]);
-  const [error, setError] = useState('');
-  const [isParsed, setIsParsed] = useState(false);
+  const {
+    logs,
+    allLogs, // Use full logs to determine available status codes
+    analytics,
+    error,
+    isParsed,
+    filters,
+    setFilters,
+    processFileContent,
+    clearLogs
+  } = useLogAnalysis();
+
   const [modalInfo, setModalInfo] = useState<{ title: string; content: string } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const analytics = useMemo(() => analyzeLogs(parsedLogs), [parsedLogs]);
-
-  useEffect(() => {
-    if (logContent) {
-      const { logs, error } = parseLogs(logContent);
-      setParsedLogs(logs);
-      setError(error);
-      setIsParsed(logs.length > 0);
-    } else {
-      setParsedLogs([]);
-      setIsParsed(false);
-      setError('');
-    }
-  }, [logContent]);
+  // Helper to derive unique status codes from ALL logs for the filter sidebar
+  const allStatusCodes = Array.from(new Set(allLogs.map(l => l.statusCode))).sort();
 
   const handleOpenFile = () => fileInputRef.current?.click();
 
@@ -50,12 +46,10 @@ function App() {
       const file = e.target.files?.[0];
       if (file) {
           const reader = new FileReader();
-          reader.onload = (event) => setLogContent(event.target?.result as string);
+          reader.onload = (event) => processFileContent(event.target?.result as string);
           reader.readAsText(file);
       }
   };
-
-  const handleCodeClick = (code: string) => setModalInfo({ title: `HTTP ${code}`, content: httpStatusCodes[parseInt(code, 10)] || "No description available." });
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
@@ -76,56 +70,112 @@ function App() {
       const file = e.dataTransfer.files?.[0];
       if (file) {
           const reader = new FileReader();
-          reader.onload = (event) => setLogContent(event.target?.result as string);
+          reader.onload = (event) => processFileContent(event.target?.result as string);
           reader.readAsText(file);
       }
   };
 
   const handleClear = (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
-      setLogContent('');
+      clearLogs();
   };
 
+  if (!isParsed) {
+    return (
+       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8">
+          <header className="text-center mb-10">
+            <h1 className="text-5xl font-extrabold text-white tracking-tight">Log Analyzer</h1>
+            <p className="text-gray-400 mt-2">Drag & drop your IIS or Azure APGW logs to begin analysis</p>
+          </header>
+          <div className="w-full max-w-2xl">
+             <FileUploader
+                isParsed={isParsed}
+                parsedLogsCount={0}
+                onOpenFile={handleOpenFile}
+                onClear={handleClear}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onFileSelect={handleFileSelect}
+                isDragging={isDragging}
+                logContent={''} // Not needed for unparsed state in new flow logic essentially
+                fileInputRef={fileInputRef}
+            />
+            {error && <div className="mt-6 text-center text-red-400 bg-red-900/20 border border-red-900/50 p-4 rounded-xl">{error}</div>}
+          </div>
+       </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto p-8">
-      {modalInfo && <Modal {...modalInfo} onClose={() => setModalInfo(null)} />}
-      <header className="text-center mb-10">
-        <h1 className="text-5xl font-extrabold text-white tracking-tight">Log Analyzer Dashboard</h1>
-        <p className="text-gray-400 mt-2">Analyze IIS/Azure APGW log files with ease</p>
-      </header>
+    <DashboardLayout filters={filters} setFilters={setFilters} allStatusCodes={allStatusCodes}>
+        {modalInfo && <Modal {...modalInfo} onClose={() => setModalInfo(null)} />}
 
-      <FileUploader
-          isParsed={isParsed}
-          parsedLogsCount={parsedLogs.length}
-          onOpenFile={handleOpenFile}
-          onClear={handleClear}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onFileSelect={handleFileSelect}
-          isDragging={isDragging}
-          logContent={logContent}
-          fileInputRef={fileInputRef}
-      />
-
-      {error && <div className="mt-6 text-center text-red-400 bg-red-900/50 p-4 rounded-xl">{error}</div>}
-
-      {analytics && isParsed && (
-        <div className="mt-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <SummaryCard title="Total Requests" value={analytics.totalRequests} />
-              <SummaryCard title="Log Time Span" value={analytics.timeSpan} unit="min" />
-              <ErrorSummary analytics={analytics} onCodeClick={handleCodeClick} />
-              <TrafficSegmentation analytics={analytics} />
-              <ServerThroughput analytics={analytics} />
-          </div>
-          <div className="mt-10 bg-gray-900 p-6 rounded-xl border border-gray-800">
-              <h2 className="text-2xl font-semibold text-white mb-4">Log Viewer</h2>
-              <VirtualizedLogViewer logs={parsedLogs} />
-          </div>
+        <div className="flex items-center justify-between mb-2">
+            <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+             <button
+                onClick={handleClear}
+                className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors border border-gray-700"
+            >
+                Upload New Log
+            </button>
         </div>
-      )}
-    </div>
+
+        {/* KPI Grid */}
+        {analytics && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <SummaryCard
+                    title="Total Requests"
+                    value={analytics.totalRequests.toLocaleString()}
+                    icon={<Activity size={24} />}
+                />
+                <SummaryCard
+                    title="Duration"
+                    value={analytics.timeSpan}
+                    unit="min"
+                    icon={<Clock size={24} />}
+                />
+                <SummaryCard
+                    title="Error Rate"
+                    value={analytics.errorRate.toFixed(2)}
+                    unit="%"
+                    icon={<AlertTriangle size={24} className={analytics.errorRate > 1 ? "text-red-500" : "text-green-500"} />}
+                />
+                 <SummaryCard
+                    title="5xx Errors"
+                    value={analytics.serverErrors.toLocaleString()}
+                    icon={<FileText size={24} />}
+                />
+            </div>
+        )}
+
+        {/* Charts Row */}
+        {analytics && analytics.timeSeriesData && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                    <ThroughputChart data={analytics.timeSeriesData} />
+                </div>
+                <div>
+                    <StatusDistributionChart data={analytics.errorCodes} />
+                </div>
+            </div>
+        )}
+
+        {/* Detailed Analysis Grid */}
+        {analytics && (
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <TrafficSegmentation analytics={analytics} />
+                <ServerThroughput analytics={analytics} />
+            </div>
+        )}
+
+        {/* Log Viewer */}
+        <div className="flex flex-col space-y-4">
+            <h2 className="text-xl font-semibold text-white">Detailed Logs</h2>
+            <VirtualizedLogViewer logs={logs} />
+        </div>
+
+    </DashboardLayout>
   );
 }
 

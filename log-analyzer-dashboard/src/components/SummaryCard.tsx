@@ -1,13 +1,26 @@
+
 interface SummaryCardProps {
     title: string;
     value: string | number;
     unit?: string;
+    icon?: React.ReactNode;
+    trend?: string; // For future use
 }
 
-const SummaryCard = ({ title, value, unit }: SummaryCardProps) => (
-    <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 text-center transition-all duration-300 hover:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-400">{title}</h3>
-        <p className="text-4xl font-extrabold text-white mt-2">{value} <span className="text-xl font-semibold text-gray-500">{unit}</span></p>
+const SummaryCard = ({ title, value, unit, icon }: SummaryCardProps) => (
+    <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 flex items-center justify-between hover:border-gray-700 transition-colors">
+        <div>
+            <p className="text-sm font-medium text-gray-400">{title}</p>
+            <p className="text-3xl font-bold text-white mt-1">
+                {value}
+                {unit && <span className="text-lg ml-1 text-gray-500 font-normal">{unit}</span>}
+            </p>
+        </div>
+        {icon && (
+            <div className="p-3 bg-gray-800 rounded-lg text-gray-400">
+                {icon}
+            </div>
+        )}
     </div>
 );
 
