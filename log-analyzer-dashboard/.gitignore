@@ -119,3 +119,5 @@ coverage/
 # Custom log files
 npm-install.log
 vite.log
+vite-dev.log
+vite-preview.log

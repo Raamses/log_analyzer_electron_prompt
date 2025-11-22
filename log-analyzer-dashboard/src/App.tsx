@@ -12,10 +12,12 @@ const httpStatusCodes: { [key: number]: string } = { 400: "Bad Request", 401: "U
 
 const Modal = ({ title, content, onClose }: { title: string, content: string, onClose: () => void }) => (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 max-w-sm w-full shadow-lg">
-            <h2 className="text-2xl font-bold mb-4 text-white">{title}</h2>
-            <p className="text-gray-300">{content}</p>
-            <button onClick={onClose} className="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg w-full">Close</button>
+        <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 max-w-md w-full shadow-xl transform transition-all duration-300 scale-95 opacity-0 animate-fade-in-scale">
+            <h2 className="text-xl font-semibold mb-4 text-white">{title}</h2>
+            <p className="text-gray-400 mb-6">{content}</p>
+            <button onClick={onClose} className="w-full bg-primary hover:bg-primary-hover text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-primary">
+                Close
+            </button>
         </div>
     </div>
 );
@@ -87,14 +89,15 @@ function App() {
   };
 
   return (
-    <div className="container mx-auto p-8">
-      {modalInfo && <Modal {...modalInfo} onClose={() => setModalInfo(null)} />}
-      <header className="text-center mb-10">
-        <h1 className="text-5xl font-extrabold text-white tracking-tight">Log Analyzer Dashboard</h1>
-        <p className="text-gray-400 mt-2">Analyze IIS/Azure APGW log files with ease</p>
-      </header>
+    <div className="bg-gray-900 min-h-screen text-gray-300">
+      <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+        {modalInfo && <Modal {...modalInfo} onClose={() => setModalInfo(null)} />}
+        <header className="text-center mb-8">
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">Log Analyzer Dashboard</h1>
+          <p className="text-gray-400 mt-2 text-lg">Analyze IIS/Azure APGW log files with ease</p>
+        </header>
 
-      <FileUploader
+        <FileUploader
           isParsed={isParsed}
           parsedLogsCount={parsedLogs.length}
           onOpenFile={handleOpenFile}
@@ -111,20 +114,21 @@ function App() {
       {error && <div className="mt-6 text-center text-red-400 bg-red-900/50 p-4 rounded-xl">{error}</div>}
 
       {analytics && isParsed && (
-        <div className="mt-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <SummaryCard title="Total Requests" value={analytics.totalRequests} />
-              <SummaryCard title="Log Time Span" value={analytics.timeSpan} unit="min" />
-              <ErrorSummary analytics={analytics} onCodeClick={handleCodeClick} />
-              <TrafficSegmentation analytics={analytics} />
-              <ServerThroughput analytics={analytics} />
+        <main className="mt-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <SummaryCard title="Total Requests" value={analytics.totalRequests} />
+            <SummaryCard title="Log Time Span" value={analytics.timeSpan} unit="min" />
+            <ErrorSummary analytics={analytics} onCodeClick={handleCodeClick} />
+            <TrafficSegmentation analytics={analytics} />
+            <ServerThroughput analytics={analytics} />
           </div>
-          <div className="mt-10 bg-gray-900 p-6 rounded-xl border border-gray-800">
-              <h2 className="text-2xl font-semibold text-white mb-4">Log Viewer</h2>
-              <VirtualizedLogViewer logs={parsedLogs} />
+          <div className="mt-8 bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+            <h2 className="text-xl font-semibold text-white mb-4">Log Viewer</h2>
+            <VirtualizedLogViewer logs={parsedLogs} />
           </div>
-        </div>
+        </main>
       )}
+      </div>
     </div>
   );
 }
