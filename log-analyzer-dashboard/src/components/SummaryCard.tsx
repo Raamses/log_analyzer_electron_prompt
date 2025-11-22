@@ -1,7 +1,10 @@
+
 interface SummaryCardProps {
     title: string;
     value: string | number;
     unit?: string;
+    icon?: React.ReactNode;
+    trend?: string; // For future use
 }
 
 const SummaryCard = ({ title, value, unit }: SummaryCardProps) => (

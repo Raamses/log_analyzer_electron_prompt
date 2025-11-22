@@ -1,14 +1,14 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useRef, useState } from 'react';
+import { useLogAnalysis } from './hooks/useLogAnalysis';
+import DashboardLayout from './components/DashboardLayout';
+import FileUploader from './components/FileUploader';
 import SummaryCard from './components/SummaryCard';
-import ErrorSummary from './components/ErrorSummary';
 import TrafficSegmentation from './components/TrafficSegmentation';
 import ServerThroughput from './components/ServerThroughput';
 import VirtualizedLogViewer from './components/VirtualizedLogViewer';
-import { parseLogs, type LogEntry } from './utils/parser';
-import { analyzeLogs } from './utils/analytics';
-import FileUploader from './components/FileUploader';
-
-const httpStatusCodes: { [key: number]: string } = { 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 500: "Internal Server Error", 502: "Bad Gateway", 503: "Service Unavailable", 504: "Gateway Timeout" };
+import ThroughputChart from './components/charts/ThroughputChart';
+import StatusDistributionChart from './components/charts/StatusDistributionChart';
+import { Activity, Clock, AlertTriangle, FileText } from 'lucide-react';
 
 const Modal = ({ title, content, onClose }: { title: string, content: string, onClose: () => void }) => (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
@@ -23,28 +23,24 @@ const Modal = ({ title, content, onClose }: { title: string, content: string, on
 );
 
 function App() {
-  const [logContent, setLogContent] = useState('');
-  const [parsedLogs, setParsedLogs] = useState<LogEntry[]>([]);
-  const [error, setError] = useState('');
-  const [isParsed, setIsParsed] = useState(false);
+  const {
+    logs,
+    allLogs, // Use full logs to determine available status codes
+    analytics,
+    error,
+    isParsed,
+    filters,
+    setFilters,
+    processFileContent,
+    clearLogs
+  } = useLogAnalysis();
+
   const [modalInfo, setModalInfo] = useState<{ title: string; content: string } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const analytics = useMemo(() => analyzeLogs(parsedLogs), [parsedLogs]);
-
-  useEffect(() => {
-    if (logContent) {
-      const { logs, error } = parseLogs(logContent);
-      setParsedLogs(logs);
-      setError(error);
-      setIsParsed(logs.length > 0);
-    } else {
-      setParsedLogs([]);
-      setIsParsed(false);
-      setError('');
-    }
-  }, [logContent]);
+  // Helper to derive unique status codes from ALL logs for the filter sidebar
+  const allStatusCodes = Array.from(new Set(allLogs.map(l => l.statusCode))).sort();
 
   const handleOpenFile = () => fileInputRef.current?.click();
 
@@ -52,12 +48,10 @@ function App() {
       const file = e.target.files?.[0];
       if (file) {
           const reader = new FileReader();
-          reader.onload = (event) => setLogContent(event.target?.result as string);
+          reader.onload = (event) => processFileContent(event.target?.result as string);
           reader.readAsText(file);
       }
   };
-
-  const handleCodeClick = (code: string) => setModalInfo({ title: `HTTP ${code}`, content: httpStatusCodes[parseInt(code, 10)] || "No description available." });
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
@@ -78,14 +72,14 @@ function App() {
       const file = e.dataTransfer.files?.[0];
       if (file) {
           const reader = new FileReader();
-          reader.onload = (event) => setLogContent(event.target?.result as string);
+          reader.onload = (event) => processFileContent(event.target?.result as string);
           reader.readAsText(file);
       }
   };
 
   const handleClear = (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
-      setLogContent('');
+      clearLogs();
   };
 
   return (
