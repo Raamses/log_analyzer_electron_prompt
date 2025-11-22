@@ -7,20 +7,15 @@ interface SummaryCardProps {
     trend?: string; // For future use
 }
 
-const SummaryCard = ({ title, value, unit, icon }: SummaryCardProps) => (
-    <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 flex items-center justify-between hover:border-gray-700 transition-colors">
+const SummaryCard = ({ title, value, unit }: SummaryCardProps) => (
+    <div className="bg-gray-800/50 p-6 rounded-lg border border-gray-700 flex flex-col justify-between">
         <div>
-            <p className="text-sm font-medium text-gray-400">{title}</p>
-            <p className="text-3xl font-bold text-white mt-1">
+            <h3 className="text-gray-400 text-sm font-medium uppercase tracking-wider">{title}</h3>
+            <p className="text-white text-3xl font-semibold mt-2">
                 {value}
-                {unit && <span className="text-lg ml-1 text-gray-500 font-normal">{unit}</span>}
+                {unit && <span className="text-lg ml-1 text-gray-400">{unit}</span>}
             </p>
         </div>
-        {icon && (
-            <div className="p-3 bg-gray-800 rounded-lg text-gray-400">
-                {icon}
-            </div>
-        )}
     </div>
 );
 

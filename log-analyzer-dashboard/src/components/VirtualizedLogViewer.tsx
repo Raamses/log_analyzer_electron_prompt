@@ -1,5 +1,13 @@
-import { useState, useRef } from 'react';
-import type { LogEntry } from '../utils/parser';
+import { useState, useRef, useMemo, FC } from 'react';
+import ContextMenu, { ContextMenuItem } from './ContextMenu';
+
+interface LogEntry {
+    timestamp: Date;
+    uriStem: string;
+    statusCode: number;
+    timeTaken: number;
+    clientIp: string;
+}
 
 interface VirtualizedLogViewerProps {
     logs: LogEntry[];
@@ -7,24 +15,43 @@ interface VirtualizedLogViewerProps {
     containerHeight?: number;
 }
 
-const getStatusColor = (code: number) => {
-    if (code >= 500) return 'text-red-500 bg-red-500/10';
-    if (code >= 400) return 'text-orange-400 bg-orange-400/10';
-    if (code >= 300) return 'text-blue-400 bg-blue-400/10';
-    return 'text-green-400 bg-green-400/10';
-};
-
 const VirtualizedLogViewer = ({ logs, rowHeight = 32, containerHeight = 500 }: VirtualizedLogViewerProps) => {
     const [scrollTop, setScrollTop] = useState(0);
+    const [filter, setFilter] = useState('');
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number; log: LogEntry } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    const filteredLogs = useMemo(() =>
+        logs.filter(log =>
+            log.uriStem.toLowerCase().includes(filter.toLowerCase()) ||
+            log.statusCode.toString().includes(filter) ||
+            log.clientIp.includes(filter)
+        ), [logs, filter]);
 
     const startIndex = Math.floor(scrollTop / rowHeight);
     const endIndex = Math.min(
         startIndex + Math.ceil(containerHeight / rowHeight),
-        logs.length
+        filteredLogs.length
     );
 
-    const visibleLogs = logs.slice(startIndex, endIndex);
+    const visibleLogs = filteredLogs.slice(startIndex, endIndex);
+
+    const getStatusColor = (statusCode: number) => {
+        if (statusCode >= 500) return 'text-red-400';
+        if (statusCode >= 400) return 'text-yellow-400';
+        if (statusCode >= 300) return 'text-blue-400';
+        return 'text-green-400';
+    };
+
+    const handleContextMenu = (e: React.MouseEvent, log: LogEntry) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, log });
+    };
+
+    const handleFilterBy = (field: keyof LogEntry, value: string | number) => {
+        setFilter(String(value));
+        setContextMenu(null);
+    };
 
     return (
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
