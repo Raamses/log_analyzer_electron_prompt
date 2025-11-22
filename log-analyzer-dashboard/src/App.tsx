@@ -8,7 +8,7 @@ import ServerThroughput from './components/ServerThroughput';
 import VirtualizedLogViewer from './components/VirtualizedLogViewer';
 import ThroughputChart from './components/charts/ThroughputChart';
 import StatusDistributionChart from './components/charts/StatusDistributionChart';
-import { Activity, Clock, AlertTriangle, FileText } from 'lucide-react';
+import ErrorSummary from './components/ErrorSummary';
 
 const Modal = ({ title, content, onClose }: { title: string, content: string, onClose: () => void }) => (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
@@ -39,8 +39,15 @@ function App() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Helper to derive unique status codes from ALL logs for the filter sidebar
-  const allStatusCodes = Array.from(new Set(allLogs.map(l => l.statusCode))).sort();
+  const handleCodeClick = (code: string) => {
+    const codeNum = parseInt(code, 10);
+    setFilters(prev => ({
+      ...prev,
+      statusCodes: prev.statusCodes.includes(codeNum)
+        ? prev.statusCodes.filter(c => c !== codeNum)
+        : [...prev.statusCodes, codeNum]
+    }));
+  };
 
   const handleOpenFile = () => fileInputRef.current?.click();
 
@@ -93,7 +100,7 @@ function App() {
 
         <FileUploader
           isParsed={isParsed}
-          parsedLogsCount={parsedLogs.length}
+          parsedLogsCount={logs.length}
           onOpenFile={handleOpenFile}
           onClear={handleClear}
           onDragOver={handleDragOver}
@@ -101,26 +108,35 @@ function App() {
           onDrop={handleDrop}
           onFileSelect={handleFileSelect}
           isDragging={isDragging}
-          logContent={logContent}
           fileInputRef={fileInputRef}
       />
 
       {error && <div className="mt-6 text-center text-red-400 bg-red-900/50 p-4 rounded-xl">{error}</div>}
 
       {analytics && isParsed && (
-        <main className="mt-8">
+        <DashboardLayout
+          filters={filters}
+          setFilters={setFilters}
+          allStatusCodes={Array.from(new Set(allLogs.map(l => l.statusCode))).sort()}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <SummaryCard title="Total Requests" value={analytics.totalRequests} />
             <SummaryCard title="Log Time Span" value={analytics.timeSpan} unit="min" />
             <ErrorSummary analytics={analytics} onCodeClick={handleCodeClick} />
-            <TrafficSegmentation analytics={analytics} />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <ThroughputChart data={analytics.timeSeriesData} />
+            <StatusDistributionChart data={analytics.errorCodes} />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
             <ServerThroughput analytics={analytics} />
+            <TrafficSegmentation analytics={analytics} />
           </div>
           <div className="mt-8 bg-gray-800/50 p-4 rounded-lg border border-gray-700">
             <h2 className="text-xl font-semibold text-white mb-4">Log Viewer</h2>
-            <VirtualizedLogViewer logs={parsedLogs} />
+            <VirtualizedLogViewer logs={logs} />
           </div>
-        </main>
+        </DashboardLayout>
       )}
       </div>
     </div>
