@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import SummaryCard from './components/SummaryCard';
+import StatCard from './components/StatCard';
 import ErrorSummary from './components/ErrorSummary';
 import TrafficSegmentation from './components/TrafficSegmentation';
 import ServerThroughput from './components/ServerThroughput';
@@ -7,6 +7,7 @@ import VirtualizedLogViewer from './components/VirtualizedLogViewer';
 import { parseLogs, type LogEntry } from './utils/parser';
 import { analyzeLogs } from './utils/analytics';
 import FileUploader from './components/FileUploader';
+import InsightBlock from './components/InsightBlock';
 
 const httpStatusCodes: { [key: number]: string } = { 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 500: "Internal Server Error", 502: "Bad Gateway", 503: "Service Unavailable", 504: "Gateway Timeout" };
 
@@ -112,16 +113,26 @@ function App() {
 
       {analytics && isParsed && (
         <div className="mt-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <SummaryCard title="Total Requests" value={analytics.totalRequests} />
-              <SummaryCard title="Log Time Span" value={analytics.timeSpan} unit="min" />
-              <ErrorSummary analytics={analytics} onCodeClick={handleCodeClick} />
-              <TrafficSegmentation analytics={analytics} />
-              <ServerThroughput analytics={analytics} />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              <StatCard title="Total Requests" value={analytics.totalRequests} description="Total number of requests in the log file." />
+              <StatCard title="Log Time Span" value={analytics.timeSpan} unit="min" description="Duration of the log file." />
+              <StatCard title="Error Rate" value={analytics.errorRate.toFixed(2)} unit="%" description="Percentage of requests that resulted in an error." />
+              <StatCard title="Avg. RPM" value={analytics.throughput.rpm1.mean} description="Average requests per minute over the last minute." />
           </div>
-          <div className="mt-10 bg-gray-900 p-6 rounded-xl border border-gray-800">
-              <h2 className="text-2xl font-semibold text-white mb-4">Log Viewer</h2>
-              <VirtualizedLogViewer logs={parsedLogs} />
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+                <ErrorSummary analytics={analytics} onCodeClick={handleCodeClick} />
+                <ServerThroughput analytics={analytics} />
+            </div>
+            <div className="lg:col-span-2">
+                <TrafficSegmentation analytics={analytics} />
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <InsightBlock title="Log Viewer">
+                <VirtualizedLogViewer logs={parsedLogs} />
+            </InsightBlock>
           </div>
         </div>
       )}
