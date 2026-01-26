@@ -6,14 +6,23 @@ export interface LogEntry {
     clientIp: string;
 }
 
+interface LogIndices {
+    date?: number;
+    time: number;
+    uri: number;
+    status: number;
+    timeTaken: number;
+    ip: number;
+}
+
 export const parseLogs = (content: string): { logs: LogEntry[], error: string } => {
     const lines = content.trim().split('\n');
     if (lines.length === 0) {
         return { logs: [], error: '' };
     }
 
-    let format = null;
-    let fields: any = {};
+    let format: 'IIS' | 'AzureAPGW' | null = null;
+    let fields: LogIndices = {} as LogIndices;
     let headerLine = -1;
 
     for(let i = 0; i < lines.length; i++) {
@@ -50,7 +59,7 @@ export const parseLogs = (content: string): { logs: LogEntry[], error: string } 
             const timeTaken = format === 'AzureAPGW' ? parseFloat(values[fields.timeTaken]) * 1000 : parseFloat(values[fields.timeTaken]);
 
             const logEntry = {
-                timestamp: format === 'IIS' ? new Date(`${values[fields.date]}T${values[fields.time]}Z`) : new Date(values[fields.time]),
+                timestamp: format === 'IIS' && fields.date !== undefined ? new Date(`${values[fields.date]}T${values[fields.time]}Z`) : new Date(values[fields.time]),
                 uriStem: uri,
                 statusCode: parseInt(values[fields.status], 10),
                 timeTaken: timeTaken,

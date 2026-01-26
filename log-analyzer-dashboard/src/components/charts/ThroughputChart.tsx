@@ -4,8 +4,14 @@ interface ThroughputChartProps {
     data: { timestamp: number; requests: number; errors: number }[];
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
+interface CustomTooltipProps {
+    active?: boolean;
+    payload?: { value: number }[];
+    label?: string | number;
+}
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+    if (active && payload && payload.length && label !== undefined && label !== null) {
         return (
             <div className="bg-gray-900 border border-gray-700 p-3 rounded shadow-xl">
                 <p className="text-gray-400 mb-1">{new Date(label).toLocaleString()}</p>

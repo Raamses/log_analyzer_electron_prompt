@@ -14,7 +14,11 @@ export const analyzeLogs = (logs: LogEntry[]) => {
     const errorRate = totalRequests > 0 ? (totalErrors / totalRequests) * 100 : 0;
     const clientErrors = errors.filter(log => log.statusCode >= 400 && log.statusCode < 500).length;
     const serverErrors = errors.filter(log => log.statusCode >= 500).length;
-    const errorCodes = errors.reduce((acc, log) => { acc[log.statusCode] = (acc[log.statusCode] || 0) + 1; return acc; }, {} as { [key: string]: number });
+    const errorCodes = errors.reduce((acc, log) => {
+        const code = String(log.statusCode);
+        acc[code] = (acc[code] || 0) + 1;
+        return acc;
+    }, {} as { [key: string]: number });
 
     const p95 = (arr: number[]) => {
         if (arr.length === 0) return 0;
