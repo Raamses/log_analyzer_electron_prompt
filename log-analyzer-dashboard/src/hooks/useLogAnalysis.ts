@@ -49,10 +49,11 @@ export const useLogAnalysis = () => {
   const filteredLogs = useMemo(() => {
     if (!isParsed) return [];
 
+    const searchLower = filters.search ? filters.search.toLowerCase() : '';
+
     return parsedLogs.filter(log => {
       // Search Filter (URI or IP)
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
+      if (searchLower) {
         if (!log.uriStem.toLowerCase().includes(searchLower) && !log.clientIp.includes(searchLower)) {
           return false;
         }
