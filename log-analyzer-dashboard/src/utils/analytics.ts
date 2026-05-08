@@ -47,8 +47,20 @@ export const analyzeLogs = (logs: LogEntry[]) => {
     const topIps = Object.entries(ips).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
     const searchLogs = sortedLogs.filter(log => log.uriStem.startsWith('singleHotelSearch'));
-    const hotelCodes = searchLogs.reduce((acc, log) => { try { const code = new URLSearchParams(log.uriStem.split('?')[1]).get('hotelCode'); if (code) acc[code] = (acc[code] || 0) + 1; } catch (e) {} return acc; }, {} as { [key: string]: number });
-    const compositions = searchLogs.reduce((acc, log) => { try { const comp = new URLSearchParams(log.uriStem.split('?')[1]).get('composition'); if (comp) acc[comp] = (acc[comp] || 0) + 1; } catch (e) {} return acc; }, {} as { [key: string]: number });
+    const hotelCodes: { [key: string]: number } = {};
+    const compositions: { [key: string]: number } = {};
+
+    searchLogs.forEach(log => {
+        try {
+            const query = log.uriStem.split('?')[1];
+            if (!query) return;
+            const params = new URLSearchParams(query);
+            const code = params.get('hotelCode');
+            const comp = params.get('composition');
+            if (code) hotelCodes[code] = (hotelCodes[code] || 0) + 1;
+            if (comp) compositions[comp] = (compositions[comp] || 0) + 1;
+        } catch (e) {}
+    });
 
     const getThroughput = (windowSize: number) => {
         const requestsPerWindow: { [key: number]: number } = {};
