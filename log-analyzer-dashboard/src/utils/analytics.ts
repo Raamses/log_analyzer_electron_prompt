@@ -1,5 +1,28 @@
 import type { LogEntry } from './parser';
 
+export const quickSelect = (arr: number[], k: number): number => {
+    let left = 0;
+    let right = arr.length - 1;
+    while (left < right) {
+        const pivot = arr[Math.floor((left + right) / 2)];
+        let i = left;
+        let j = right;
+        while (i <= j) {
+            while (arr[i] < pivot) i++;
+            while (arr[j] > pivot) j--;
+            if (i <= j) {
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+                i++;
+                j--;
+            }
+        }
+        if (k <= j) right = j;
+        else if (k >= i) left = i;
+        else break;
+    }
+    return arr[k];
+};
+
 export const analyzeLogs = (logs: LogEntry[]) => {
     if (logs.length === 0) return null;
 
@@ -18,9 +41,8 @@ export const analyzeLogs = (logs: LogEntry[]) => {
 
     const p95 = (arr: number[]) => {
         if (arr.length === 0) return 0;
-        const sorted = [...arr].sort((a, b) => a - b);
-        const index = Math.ceil(0.95 * sorted.length) - 1;
-        return sorted[index];
+        const index = Math.ceil(0.95 * arr.length) - 1;
+        return quickSelect([...arr], index);
     };
 
     const endpoints = sortedLogs.reduce((acc, log) => {
@@ -32,12 +54,15 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         return acc;
     }, {} as { [key: string]: { calls: number; latencies: number[] } });
 
-    const topEndpoints = Object.entries(endpoints).map(([uri, data]) => ({
-        uri,
-        totalCalls: data.calls,
-        avgLatency: data.latencies.reduce((a, b) => a + b, 0) / data.calls,
-        p95Latency: p95(data.latencies),
-    })).sort((a, b) => b.totalCalls - a.totalCalls).slice(0, 10);
+    const topEndpoints = Object.entries(endpoints)
+        .sort((a, b) => b[1].calls - a[1].calls)
+        .slice(0, 10)
+        .map(([uri, data]) => ({
+            uri,
+            totalCalls: data.calls,
+            avgLatency: data.latencies.reduce((a, b) => a + b, 0) / data.calls,
+            p95Latency: p95(data.latencies),
+        }));
 
     const ips = sortedLogs.reduce((acc, log) => {
         acc[log.clientIp] = (acc[log.clientIp] || 0) + 1;
