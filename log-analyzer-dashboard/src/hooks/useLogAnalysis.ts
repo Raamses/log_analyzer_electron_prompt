@@ -74,6 +74,11 @@ export const useLogAnalysis = () => {
   // Analyze All Parsed Logs for dashboard stats
   const analytics = useMemo(() => analyzeLogs(parsedLogs), [parsedLogs]);
 
+  // Extract and sort unique status codes for filters
+  const allStatusCodes = useMemo(() => {
+    return Array.from(new Set(parsedLogs.map(l => l.statusCode))).sort();
+  }, [parsedLogs]);
+
   // Function to update raw content (from file upload)
   const processFileContent = (content: string) => {
     setRawContent(content);
@@ -86,6 +91,7 @@ export const useLogAnalysis = () => {
   return {
     logs: filteredLogs,
     allLogs: parsedLogs,
+    allStatusCodes,
     analytics,
     error,
     isParsed,

@@ -25,7 +25,8 @@ const Modal = ({ title, content, onClose }: { title: string, content: string, on
 function App() {
   const {
     logs,
-    allLogs, // Use full logs to determine available status codes
+    allLogs,
+    allStatusCodes,
     analytics,
     error,
     isParsed,
@@ -117,7 +118,7 @@ function App() {
         <DashboardLayout
           filters={filters}
           setFilters={setFilters}
-          allStatusCodes={Array.from(new Set(allLogs.map(l => l.statusCode))).sort()}
+          allStatusCodes={allStatusCodes}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <SummaryCard title="Total Requests" value={analytics.totalRequests} />

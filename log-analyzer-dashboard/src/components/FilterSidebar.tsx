@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Calendar, X, Search } from 'lucide-react';
 import type { FilterState } from '../hooks/useLogAnalysis';
 
@@ -10,6 +11,8 @@ interface FilterSidebarProps {
 }
 
 const FilterSidebar = ({ filters, setFilters, allStatusCodes, isOpen, onClose }: FilterSidebarProps) => {
+    const sortedStatusCodes = useMemo(() => [...allStatusCodes].sort(), [allStatusCodes]);
+
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFilters(prev => ({ ...prev, search: e.target.value }));
     };
@@ -94,7 +97,7 @@ const FilterSidebar = ({ filters, setFilters, allStatusCodes, isOpen, onClose }:
                 <div>
                     <label className="block text-sm font-semibold text-gray-400 mb-2">Status Codes</label>
                     <div className="grid grid-cols-2 gap-2">
-                        {allStatusCodes.sort().map(code => (
+                        {sortedStatusCodes.map(code => (
                             <button
                                 key={code}
                                 onClick={() => handleStatusChange(code)}
