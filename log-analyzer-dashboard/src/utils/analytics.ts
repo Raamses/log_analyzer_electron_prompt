@@ -50,30 +50,29 @@ export const analyzeLogs = (logs: LogEntry[]) => {
     const hotelCodes = searchLogs.reduce((acc, log) => { try { const code = new URLSearchParams(log.uriStem.split('?')[1]).get('hotelCode'); if (code) acc[code] = (acc[code] || 0) + 1; } catch (e) {} return acc; }, {} as { [key: string]: number });
     const compositions = searchLogs.reduce((acc, log) => { try { const comp = new URLSearchParams(log.uriStem.split('?')[1]).get('composition'); if (comp) acc[comp] = (acc[comp] || 0) + 1; } catch (e) {} return acc; }, {} as { [key: string]: number });
 
-    const getThroughput = (windowSize: number) => {
-        const requestsPerWindow: { [key: number]: number } = {};
-        sortedLogs.forEach(log => {
-            const window = Math.floor(log.timestamp.getTime() / (windowSize * 60000));
-            requestsPerWindow[window] = (requestsPerWindow[window] || 0) + 1;
-        });
-        const windowValues = Object.values(requestsPerWindow);
-        const mean = windowValues.length > 0 ? (windowValues.reduce((a, b) => a + b, 0) / windowValues.length) / windowSize : 0;
-        const max = windowValues.length > 0 ? Math.max(...windowValues) / windowSize : 0;
-        return { mean: mean.toFixed(2), max: max.toFixed(2) };
-    };
-
-    // Generate Time Series Data for Charts
+    // Generate Time Series Data for Charts & Throughput
     const timeSeriesData: { timestamp: number; requests: number; errors: number; avgLatency: number }[] = [];
     const timeMap = new Map<number, { requests: number; errors: number; totalLatency: number }>();
+    const rpm15Map: Record<number, number> = {};
+    const rpm60Map: Record<number, number> = {};
 
-    // Binning by minute (60000ms)
+    // Single pass to bin data for time series and throughput
     sortedLogs.forEach(log => {
-        const bin = Math.floor(log.timestamp.getTime() / 60000) * 60000;
+        const time = log.timestamp.getTime();
+
+        // Minute-level binning (for time series and RPM 1)
+        const bin = Math.floor(time / 60000) * 60000;
         const existing = timeMap.get(bin) || { requests: 0, errors: 0, totalLatency: 0 };
         existing.requests++;
         if (log.statusCode >= 400) existing.errors++;
         existing.totalLatency += log.timeTaken;
         timeMap.set(bin, existing);
+
+        // Window-level binning (for RPM 15 and 60)
+        const w15 = Math.floor(time / 900000); // 15 * 60000
+        const w60 = Math.floor(time / 3600000); // 60 * 60000
+        rpm15Map[w15] = (rpm15Map[w15] || 0) + 1;
+        rpm60Map[w60] = (rpm60Map[w60] || 0) + 1;
     });
 
     Array.from(timeMap.entries())
@@ -86,6 +85,25 @@ export const analyzeLogs = (logs: LogEntry[]) => {
                 avgLatency: data.totalLatency / data.requests
             });
         });
+
+    const calculateThroughput = (counts: number[], windowSize: number) => {
+        const count = counts.length;
+        if (count === 0) return { mean: '0.00', max: '0.00' };
+
+        let sum = 0;
+        let max = 0;
+        for (let i = 0; i < count; i++) {
+            const v = counts[i];
+            sum += v;
+            if (v > max) max = v;
+        }
+
+        const mean = (sum / count) / windowSize;
+        const maxPerMin = max / windowSize;
+        return { mean: mean.toFixed(2), max: maxPerMin.toFixed(2) };
+    };
+
+    const rpm1Values = Array.from(timeMap.values()).map(d => d.requests);
 
     return {
         totalRequests,
@@ -102,9 +120,9 @@ export const analyzeLogs = (logs: LogEntry[]) => {
             topCompositions: Object.entries(compositions).sort((a, b) => b[1] - a[1]).slice(0, 10),
         },
         throughput: {
-            rpm1: getThroughput(1),
-            rpm15: getThroughput(15),
-            rpm60: getThroughput(60),
+            rpm1: calculateThroughput(rpm1Values, 1),
+            rpm15: calculateThroughput(Object.values(rpm15Map), 15),
+            rpm60: calculateThroughput(Object.values(rpm60Map), 60),
         },
         timeSeriesData
     };
