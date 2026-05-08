@@ -94,7 +94,7 @@ const FilterSidebar = ({ filters, setFilters, allStatusCodes, isOpen, onClose }:
                 <div>
                     <label className="block text-sm font-semibold text-gray-400 mb-2">Status Codes</label>
                     <div className="grid grid-cols-2 gap-2">
-                        {allStatusCodes.sort().map(code => (
+                        {allStatusCodes.map(code => (
                             <button
                                 key={code}
                                 onClick={() => handleStatusChange(code)}
