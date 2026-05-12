@@ -45,7 +45,12 @@ export const parseLogs = (content: string): { logs: LogEntry[], error: string } 
         let values = format === 'IIS' ? lines[i].split(' ') : lines[i].split('\t');
         try {
             let uri = values[fields.uri];
-            if (uri.includes("searchresult")) uri = 'singleHotelSearch?' + uri.split('?')[1];
+            if (uri.includes("searchresult")) {
+                const qMarkIndex = uri.indexOf('?');
+                if (qMarkIndex !== -1) {
+                    uri = 'singleHotelSearch?' + uri.substring(qMarkIndex + 1);
+                }
+            }
 
             const timeTaken = format === 'AzureAPGW' ? parseFloat(values[fields.timeTaken]) * 1000 : parseFloat(values[fields.timeTaken]);
 
