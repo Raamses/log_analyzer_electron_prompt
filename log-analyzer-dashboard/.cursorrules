@@ -1,0 +1,13 @@
+# Agent Protocol for Log Analyzer Dashboard
+
+When you are acting as an AI assistant in this project, adhere strictly to the following rules:
+
+## Architecture and Style
+1. **No Electron**: Do NOT re-introduce Electron APIs or integrations. This project has been explicitly refactored to be a 100% web-based SPA. Ignore the `electron.d.ts` and `dist-electron` artifacts.
+2. **Strict TypeScript**: Never use `any`. Always specify types. For React components, prefer `type FC` with `PropsWithChildren` from `react` imported as a type (`import type { FC } ...`).
+3. **Styling**: Always use Tailwind CSS v4 utility classes. Avoid creating custom CSS in `index.css` unless it's a theme variable.
+4. **Performance**: When modifying the `VirtualizedLogViewer`, ensure high-performance rendering. Do not add heavy computations inside the map loops. Use `useMemo` for filtering data.
+
+## Workflow Rules
+1. **Linting**: Before suggesting code to commit, ensure it passes `npm run lint`.
+2. **Log Formats**: If extending the parser (`src/utils/parser.ts`), always ensure that latency is calculated and normalized in milliseconds (ms), and timestamps are returned as a standard JavaScript `Date` object.
