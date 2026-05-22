@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import ContextMenu, { ContextMenuItem } from './ContextMenu';
 import { Filter, Globe, ExternalLink, ShieldAlert, Copy } from 'lucide-react';
 
@@ -27,24 +27,16 @@ const VirtualizedLogViewer = ({
     onLookupIp,
 }: VirtualizedLogViewerProps) => {
     const [scrollTop, setScrollTop] = useState(0);
-    const [filter] = useState('');
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; ip: string } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-
-    const filteredLogs = useMemo(() =>
-        logs.filter(log =>
-            log.uriStem.toLowerCase().includes(filter.toLowerCase()) ||
-            log.statusCode.toString().includes(filter) ||
-            log.clientIp.includes(filter)
-        ), [logs, filter]);
 
     const startIndex = Math.floor(scrollTop / rowHeight);
     const endIndex = Math.min(
         startIndex + Math.ceil(containerHeight / rowHeight),
-        filteredLogs.length
+        logs.length
     );
 
-    const visibleLogs = filteredLogs.slice(startIndex, endIndex);
+    const visibleLogs = logs.slice(startIndex, endIndex);
 
     const getStatusStyle = (statusCode: number) => {
         if (statusCode >= 500) {
@@ -76,7 +68,7 @@ const VirtualizedLogViewer = ({
 
     return (
         <div className="bg-slate-950 rounded-xl border border-slate-900 overflow-hidden shadow-2xl">
-             <div className="grid grid-cols-12 bg-slate-900/60 border-b border-slate-900 text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 font-sans">
+             <div className="grid grid-cols-12 bg-slate-900/60 border-b border-slate-900 text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 font-sans font-medium">
                 <div className="col-span-2">Timestamp</div>
                 <div className="col-span-1">Method</div>
                 <div className="col-span-1">Status</div>
@@ -91,7 +83,7 @@ const VirtualizedLogViewer = ({
                 style={{ height: `${containerHeight}px` }}
                 onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
             >
-                <div style={{ height: `${filteredLogs.length * rowHeight}px` }} className="w-full">
+                <div style={{ height: `${logs.length * rowHeight}px` }} className="w-full">
                     <div style={{ position: 'absolute', top: `${startIndex * rowHeight}px`, left: 0, right: 0 }}>
                         {visibleLogs.map((log, index) => {
                             const method = log.method || (log.uriStem.includes('Search') || log.uriStem.includes('api/') ? 'POST' : 'GET');
@@ -142,7 +134,7 @@ const VirtualizedLogViewer = ({
                 </div>
             </div>
             <div className="bg-slate-900/30 border-t border-slate-900 px-4 py-2.5 text-xs text-slate-500 flex justify-between font-sans font-semibold">
-                <span>Showing {filteredLogs.length.toLocaleString()} entries</span>
+                <span>Showing {logs.length.toLocaleString()} entries</span>
             </div>
 
             {contextMenu && (
@@ -203,4 +195,3 @@ const VirtualizedLogViewer = ({
 };
 
 export default VirtualizedLogViewer;
-

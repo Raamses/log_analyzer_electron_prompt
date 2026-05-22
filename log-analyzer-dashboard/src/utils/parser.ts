@@ -355,8 +355,12 @@ export const parseLogs = (content: string): { logs: LogEntry[], error: string } 
 
             const uriLower = uri.toLowerCase();
             if (uriLower.includes("searchresult") || uriLower.includes("search-results") || uriLower.includes("getsinglehotelsearchresults")) {
-                const parts = uri.split('?');
-                uri = parts.length > 1 ? `/singleHotelSearch?${parts[1]}` : '/singleHotelSearch';
+                const qMarkIndex = uri.indexOf('?');
+                if (qMarkIndex !== -1) {
+                    uri = '/singleHotelSearch?' + uri.substring(qMarkIndex + 1);
+                } else {
+                    uri = '/singleHotelSearch';
+                }
             }
 
             const timeTaken = format === 'AzureAPGW' 
