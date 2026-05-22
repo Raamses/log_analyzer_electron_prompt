@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
 
 interface LogEntry {
     timestamp: Date;
@@ -16,23 +16,15 @@ interface VirtualizedLogViewerProps {
 
 const VirtualizedLogViewer = ({ logs, rowHeight = 32, containerHeight = 500 }: VirtualizedLogViewerProps) => {
     const [scrollTop, setScrollTop] = useState(0);
-    const [filter] = useState('');
     const containerRef = useRef<HTMLDivElement>(null);
-
-    const filteredLogs = useMemo(() =>
-        logs.filter(log =>
-            log.uriStem.toLowerCase().includes(filter.toLowerCase()) ||
-            log.statusCode.toString().includes(filter) ||
-            log.clientIp.includes(filter)
-        ), [logs, filter]);
 
     const startIndex = Math.floor(scrollTop / rowHeight);
     const endIndex = Math.min(
         startIndex + Math.ceil(containerHeight / rowHeight),
-        filteredLogs.length
+        logs.length
     );
 
-    const visibleLogs = filteredLogs.slice(startIndex, endIndex);
+    const visibleLogs = logs.slice(startIndex, endIndex);
 
     const getStatusColor = (statusCode: number) => {
         if (statusCode >= 500) return 'text-red-400';
