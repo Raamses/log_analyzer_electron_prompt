@@ -69,25 +69,9 @@ export const analyzeLogs = (logs: LogEntry[]) => {
     const topIps = allIps.slice(0, 10).map(x => [x.ip, x.totalCalls] as [string, number]);
 
     const searchLogs = sortedLogs.filter(log => log.uriStem.includes('singleHotelSearch'));
-    const hotelCodes = searchLogs.reduce((acc, log) => {
-        let hc = log.hotelCode;
-        if (hc === undefined || hc === null) {
-            const match = log.uriStem.match(/[?&]hotelCode=([^&]+)/);
-            hc = match ? decodeURIComponent(match[1]) : null;
-        }
-        if (hc) acc[hc] = (acc[hc] || 0) + 1;
-        return acc;
-    }, {} as { [key: string]: number });
 
-    const compositions = searchLogs.reduce((acc, log) => {
-        let comp = log.composition;
-        if (comp === undefined || comp === null) {
-            const match = log.uriStem.match(/[?&]composition=([^&]+)/);
-            comp = match ? decodeURIComponent(match[1]) : null;
-        }
-        if (comp) acc[comp] = (acc[comp] || 0) + 1;
-        return acc;
-    }, {} as { [key: string]: number });
+    const hotelCodes: { [key: string]: number } = {};
+    const compositions: { [key: string]: number } = {};
 
     const stayCategories = ['Short', 'Standard', 'Long', 'Extended'];
     const occupancyProfiles = ['Single', 'Double', 'Family', 'Other'];
@@ -114,22 +98,30 @@ export const analyzeLogs = (logs: LogEntry[]) => {
     let stayDurationCount = 0;
 
     searchLogs.forEach(log => {
+        let hc = log.hotelCode;
         let comp = log.composition;
-        if (comp === undefined || comp === null) {
-            const match = log.uriStem.match(/[?&]composition=([^&]+)/);
-            comp = match ? decodeURIComponent(match[1]) : null;
-        }
-        
         let sd = log.stayDuration;
         let tg = log.totalGuests;
         let cp = log.childrenPresent;
         
-        if (sd === undefined || sd === null || tg === undefined || tg === null || cp === undefined || cp === null) {
+        let needsParse = false;
+        if (hc === undefined || hc === null) needsParse = true;
+        if (comp === undefined || comp === null) needsParse = true;
+        if (sd === undefined || sd === null) needsParse = true;
+        if (tg === undefined || tg === null) needsParse = true;
+        if (cp === undefined || cp === null) needsParse = true;
+
+        if (needsParse) {
             const parsed = parseSearchParams(log.uriStem);
+            if (hc === undefined || hc === null) hc = parsed.hotelCode;
+            if (comp === undefined || comp === null) comp = parsed.composition;
             if (sd === undefined || sd === null) sd = parsed.stayDuration;
             if (tg === undefined || tg === null) tg = parsed.totalGuests;
             if (cp === undefined || cp === null) cp = parsed.childrenPresent;
         }
+
+        if (hc) hotelCodes[hc] = (hotelCodes[hc] || 0) + 1;
+        if (comp) compositions[comp] = (compositions[comp] || 0) + 1;
 
         if (sd !== undefined && sd !== null) {
             totalStayDuration += sd;
