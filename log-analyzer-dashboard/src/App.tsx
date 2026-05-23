@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { useLogAnalysis } from './hooks/useLogAnalysis';
 import DashboardLayout from './components/DashboardLayout';
 import FileUploader from './components/FileUploader';
@@ -125,7 +125,13 @@ function App() {
   }, [geoIpEnabled]);
 
   // Helper to derive unique status codes from ALL logs for the filter sidebar
-  const allStatusCodes = Array.from(new Set(allLogs.map(l => l.statusCode))).sort();
+  const allStatusCodes = useMemo(() => {
+    const codes = new Set<number>();
+    for (let i = 0; i < allLogs.length; i++) {
+      codes.add(allLogs[i].statusCode);
+    }
+    return Array.from(codes).sort((a, b) => a - b);
+  }, [allLogs]);
 
   const handleOpenFile = () => fileInputRef.current?.click();
 
