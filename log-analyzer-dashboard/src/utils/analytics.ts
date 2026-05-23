@@ -206,31 +206,58 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         });
     });
 
-    const getThroughput = (windowSize: number) => {
-        const requestsPerWindow: { [key: number]: number } = {};
-        sortedLogs.forEach(log => {
-            const window = Math.floor(log.timestamp.getTime() / (windowSize * 60000));
-            requestsPerWindow[window] = (requestsPerWindow[window] || 0) + 1;
-        });
-        const windowValues = Object.values(requestsPerWindow);
-        const mean = windowValues.length > 0 ? (windowValues.reduce((a, b) => a + b, 0) / windowValues.length) / windowSize : 0;
-        const max = windowValues.length > 0 ? Math.max(...windowValues) / windowSize : 0;
-        return { mean: mean.toFixed(2), max: max.toFixed(2) };
-    };
-
-    // Generate Time Series Data for Charts
-    const timeSeriesData: { timestamp: number; requests: number; errors: number; avgLatency: number }[] = [];
+    const requestsPerWindow1: { [key: number]: number } = {};
+    const requestsPerWindow15: { [key: number]: number } = {};
+    const requestsPerWindow60: { [key: number]: number } = {};
     const timeMap = new Map<number, { requests: number; errors: number; totalLatency: number }>();
 
-    // Binning by minute (60000ms)
+    // Single pass for time binning and throughput calculations
     sortedLogs.forEach(log => {
-        const bin = Math.floor(log.timestamp.getTime() / 60000) * 60000;
+        const ts = log.timestamp.getTime();
+
+        // 1 minute bins
+        const window1 = Math.floor(ts / 60000);
+        requestsPerWindow1[window1] = (requestsPerWindow1[window1] || 0) + 1;
+
+        // 15 minute bins
+        const window15 = Math.floor(ts / (15 * 60000));
+        requestsPerWindow15[window15] = (requestsPerWindow15[window15] || 0) + 1;
+
+        // 60 minute bins
+        const window60 = Math.floor(ts / (60 * 60000));
+        requestsPerWindow60[window60] = (requestsPerWindow60[window60] || 0) + 1;
+
+        // Time Map for Series Data (Binning by minute: 60000ms)
+        const bin = window1 * 60000;
         const existing = timeMap.get(bin) || { requests: 0, errors: 0, totalLatency: 0 };
         existing.requests++;
         if (log.statusCode >= 400) existing.errors++;
         existing.totalLatency += log.timeTaken;
         timeMap.set(bin, existing);
     });
+
+    const getThroughputStats = (requestsPerWindow: { [key: number]: number }, windowSize: number) => {
+        const windowValues = Object.values(requestsPerWindow);
+        if (windowValues.length === 0) {
+            return { mean: "0.00", max: "0.00" };
+        }
+
+        let sum = 0;
+        let maxVal = -Infinity;
+        for (let i = 0; i < windowValues.length; i++) {
+            sum += windowValues[i];
+            if (windowValues[i] > maxVal) {
+                maxVal = windowValues[i];
+            }
+        }
+
+        const mean = (sum / windowValues.length) / windowSize;
+        const max = maxVal / windowSize;
+        return { mean: mean.toFixed(2), max: max.toFixed(2) };
+    };
+
+    // Generate Time Series Data for Charts
+    const timeSeriesData: { timestamp: number; requests: number; errors: number; avgLatency: number }[] = [];
 
     Array.from(timeMap.entries())
         .sort((a, b) => a[0] - b[0])
@@ -417,9 +444,9 @@ export const analyzeLogs = (logs: LogEntry[]) => {
             familySearchShare,
         },
         throughput: {
-            rpm1: getThroughput(1),
-            rpm15: getThroughput(15),
-            rpm60: getThroughput(60),
+            rpm1: getThroughputStats(requestsPerWindow1, 1),
+            rpm15: getThroughputStats(requestsPerWindow15, 15),
+            rpm60: getThroughputStats(requestsPerWindow60, 60),
         },
         timeSeriesData,
         performanceAnomalies: {
