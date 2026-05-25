@@ -16,36 +16,70 @@ export const analyzeLogs = (logs: LogEntry[]) => {
     const serverErrors = errors.filter(log => log.statusCode >= 500).length;
     const errorCodes = errors.reduce((acc, log) => { acc[log.statusCode] = (acc[log.statusCode] || 0) + 1; return acc; }, {} as { [key: string]: number });
 
+    const quickSelect = (arr: number[], k: number): number => {
+        if (arr.length === 0) return 0;
+        const copy = [...arr]; // Copy once to avoid mutating original
+        let left = 0;
+        let right = copy.length - 1;
+
+        while (left <= right) {
+            // Partition
+            const pivot = copy[right];
+            let i = left;
+            for (let j = left; j < right; j++) {
+                if (copy[j] <= pivot) {
+                    const temp = copy[i];
+                    copy[i] = copy[j];
+                    copy[j] = temp;
+                    i++;
+                }
+            }
+            const temp = copy[i];
+            copy[i] = copy[right];
+            copy[right] = temp;
+
+            const pivotIndex = i;
+
+            if (pivotIndex === k) {
+                return copy[k];
+            } else if (pivotIndex < k) {
+                left = pivotIndex + 1;
+            } else {
+                right = pivotIndex - 1;
+            }
+        }
+        return copy[k];
+    };
+
     const p95 = (arr: number[]) => {
         if (arr.length === 0) return 0;
-        const sorted = [...arr].sort((a, b) => a - b);
-        const index = Math.ceil(0.95 * sorted.length) - 1;
-        return sorted[index];
+        const index = Math.ceil(0.95 * arr.length) - 1;
+        return quickSelect(arr, index);
     };
 
     const p99 = (arr: number[]) => {
         if (arr.length === 0) return 0;
-        const sorted = [...arr].sort((a, b) => a - b);
-        const index = Math.ceil(0.99 * sorted.length) - 1;
-        return sorted[index];
+        const index = Math.ceil(0.99 * arr.length) - 1;
+        return quickSelect(arr, index);
     };
 
     const endpoints = sortedLogs.reduce((acc, log) => {
         if (!acc[log.uriStem]) {
-            acc[log.uriStem] = { calls: 0, errors: 0, latencies: [] };
+            acc[log.uriStem] = { calls: 0, errors: 0, totalLatency: 0, latencies: [] };
         }
         acc[log.uriStem].calls++;
         if (log.statusCode >= 400) acc[log.uriStem].errors++;
+        acc[log.uriStem].totalLatency += log.timeTaken;
         acc[log.uriStem].latencies.push(log.timeTaken);
         return acc;
-    }, {} as { [key: string]: { calls: number; errors: number; latencies: number[] } });
+    }, {} as { [key: string]: { calls: number; errors: number; totalLatency: number; latencies: number[] } });
 
     const allEndpoints = Object.entries(endpoints).map(([uri, data]) => ({
         uri,
         totalCalls: data.calls,
         errorCount: data.errors,
         errorRate: data.calls > 0 ? (data.errors / data.calls) * 100 : 0,
-        avgLatency: data.latencies.reduce((a, b) => a + b, 0) / data.calls,
+        avgLatency: data.calls > 0 ? data.totalLatency / data.calls : 0,
         p95Latency: p95(data.latencies),
         p99Latency: p99(data.latencies),
     })).sort((a, b) => b.totalCalls - a.totalCalls);
@@ -93,20 +127,20 @@ export const analyzeLogs = (logs: LogEntry[]) => {
     const occupancyProfiles = ['Single', 'Double', 'Family', 'Other'];
 
     const stayStatsInit = stayCategories.reduce((acc, cat) => {
-        acc[cat] = { calls: 0, errors: 0, latencies: [] };
+        acc[cat] = { calls: 0, errors: 0, totalLatency: 0, latencies: [] };
         return acc;
-    }, {} as Record<string, { calls: number; errors: number; latencies: number[] }>);
+    }, {} as Record<string, { calls: number; errors: number; totalLatency: number; latencies: number[] }>);
 
     const occupancyStatsInit = occupancyProfiles.reduce((acc, prof) => {
-        acc[prof] = { calls: 0, errors: 0, latencies: [] };
+        acc[prof] = { calls: 0, errors: 0, totalLatency: 0, latencies: [] };
         return acc;
-    }, {} as Record<string, { calls: number; errors: number; latencies: number[] }>);
+    }, {} as Record<string, { calls: number; errors: number; totalLatency: number; latencies: number[] }>);
 
-    const matrixInit = {} as Record<string, Record<string, { calls: number; errors: number; latencies: number[] }>>;
+    const matrixInit = {} as Record<string, Record<string, { calls: number; errors: number; totalLatency: number; latencies: number[] }>>;
     stayCategories.forEach(cat => {
         matrixInit[cat] = {};
         occupancyProfiles.forEach(prof => {
-            matrixInit[cat][prof] = { calls: 0, errors: 0, latencies: [] };
+            matrixInit[cat][prof] = { calls: 0, errors: 0, totalLatency: 0, latencies: [] };
         });
     });
 
@@ -142,18 +176,21 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         if (stayCat && stayStatsInit[stayCat]) {
             stayStatsInit[stayCat].calls++;
             if (log.statusCode >= 400) stayStatsInit[stayCat].errors++;
+            stayStatsInit[stayCat].totalLatency += log.timeTaken;
             stayStatsInit[stayCat].latencies.push(log.timeTaken);
         }
 
         if (occProf && occupancyStatsInit[occProf]) {
             occupancyStatsInit[occProf].calls++;
             if (log.statusCode >= 400) occupancyStatsInit[occProf].errors++;
+            occupancyStatsInit[occProf].totalLatency += log.timeTaken;
             occupancyStatsInit[occProf].latencies.push(log.timeTaken);
         }
 
         if (stayCat && occProf && matrixInit[stayCat] && matrixInit[stayCat][occProf]) {
             matrixInit[stayCat][occProf].calls++;
             if (log.statusCode >= 400) matrixInit[stayCat][occProf].errors++;
+            matrixInit[stayCat][occProf].totalLatency += log.timeTaken;
             matrixInit[stayCat][occProf].latencies.push(log.timeTaken);
         }
     });
@@ -168,7 +205,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         totalCalls: data.calls,
         errorCount: data.errors,
         errorRate: data.calls > 0 ? (data.errors / data.calls) * 100 : 0,
-        avgLatency: data.calls > 0 ? data.latencies.reduce((a, b) => a + b, 0) / data.calls : 0,
+        avgLatency: data.calls > 0 ? data.totalLatency / data.calls : 0,
         p95Latency: p95(data.latencies),
     }));
 
@@ -177,7 +214,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         totalCalls: data.calls,
         errorCount: data.errors,
         errorRate: data.calls > 0 ? (data.errors / data.calls) * 100 : 0,
-        avgLatency: data.calls > 0 ? data.latencies.reduce((a, b) => a + b, 0) / data.calls : 0,
+        avgLatency: data.calls > 0 ? data.totalLatency / data.calls : 0,
         p95Latency: p95(data.latencies),
     }));
 
@@ -200,7 +237,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
                 totalCalls: data.calls,
                 errorCount: data.errors,
                 errorRate: data.calls > 0 ? (data.errors / data.calls) * 100 : 0,
-                avgLatency: data.calls > 0 ? data.latencies.reduce((a, b) => a + b, 0) / data.calls : 0,
+                avgLatency: data.calls > 0 ? data.totalLatency / data.calls : 0,
                 p95Latency: p95(data.latencies),
             });
         });
@@ -257,8 +294,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
     const endpointStats = new Map<string, { mean: number; stdDev: number; calls: number }>();
     Object.entries(endpoints).forEach(([uri, data]) => {
         const calls = data.calls;
-        const sum = data.latencies.reduce((a, b) => a + b, 0);
-        const mean = sum / calls;
+        const mean = data.totalLatency / calls;
         const variance = data.latencies.reduce((sumVal, val) => sumVal + Math.pow(val - mean, 2), 0) / calls;
         const stdDev = Math.sqrt(variance);
         endpointStats.set(uri, { mean, stdDev, calls });
