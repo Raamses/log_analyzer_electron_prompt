@@ -75,20 +75,20 @@ export const analyzeLogs = (logs: LogEntry[]) => {
     const occupancyProfiles = ['Single', 'Double', 'Family', 'Other'];
 
     const stayStatsInit = stayCategories.reduce((acc, cat) => {
-        acc[cat] = { calls: 0, errors: 0, latencies: [] };
+        acc[cat] = { calls: 0, errors: 0, totalLatency: 0, latencies: [] };
         return acc;
-    }, {} as Record<string, { calls: number; errors: number; latencies: number[] }>);
+    }, {} as Record<string, { calls: number; errors: number; totalLatency: number; latencies: number[] }>);
 
     const occupancyStatsInit = occupancyProfiles.reduce((acc, prof) => {
-        acc[prof] = { calls: 0, errors: 0, latencies: [] };
+        acc[prof] = { calls: 0, errors: 0, totalLatency: 0, latencies: [] };
         return acc;
-    }, {} as Record<string, { calls: number; errors: number; latencies: number[] }>);
+    }, {} as Record<string, { calls: number; errors: number; totalLatency: number; latencies: number[] }>);
 
-    const matrixInit = {} as Record<string, Record<string, { calls: number; errors: number; latencies: number[] }>>;
+    const matrixInit = {} as Record<string, Record<string, { calls: number; errors: number; totalLatency: number; latencies: number[] }>>;
     stayCategories.forEach(cat => {
         matrixInit[cat] = {};
         occupancyProfiles.forEach(prof => {
-            matrixInit[cat][prof] = { calls: 0, errors: 0, latencies: [] };
+            matrixInit[cat][prof] = { calls: 0, errors: 0, totalLatency: 0, latencies: [] };
         });
     });
 
@@ -291,7 +291,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         totalCalls: data.calls,
         errorCount: data.errors,
         errorRate: data.calls > 0 ? (data.errors / data.calls) * 100 : 0,
-        avgLatency: data.calls > 0 ? data.latencies.reduce((a, b) => a + b, 0) / data.calls : 0,
+        avgLatency: data.calls > 0 ? data.totalLatency / data.calls : 0,
         p95Latency: p95(data.latencies),
     }));
 
@@ -300,7 +300,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         totalCalls: data.calls,
         errorCount: data.errors,
         errorRate: data.calls > 0 ? (data.errors / data.calls) * 100 : 0,
-        avgLatency: data.calls > 0 ? data.latencies.reduce((a, b) => a + b, 0) / data.calls : 0,
+        avgLatency: data.calls > 0 ? data.totalLatency / data.calls : 0,
         p95Latency: p95(data.latencies),
     }));
 
@@ -323,7 +323,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
                 totalCalls: data.calls,
                 errorCount: data.errors,
                 errorRate: data.calls > 0 ? (data.errors / data.calls) * 100 : 0,
-                avgLatency: data.calls > 0 ? data.latencies.reduce((a, b) => a + b, 0) / data.calls : 0,
+                avgLatency: data.calls > 0 ? data.totalLatency / data.calls : 0,
                 p95Latency: p95(data.latencies),
             });
         });
@@ -357,8 +357,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
     const endpointStats = new Map<string, { mean: number; stdDev: number; calls: number }>();
     Object.entries(endpoints).forEach(([uri, data]) => {
         const calls = data.calls;
-        const sum = data.latencies.reduce((a, b) => a + b, 0);
-        const mean = sum / calls;
+        const mean = data.totalLatency / calls;
         const variance = data.latencies.reduce((sumVal, val) => sumVal + Math.pow(val - mean, 2), 0) / calls;
         const stdDev = Math.sqrt(variance);
         endpointStats.set(uri, { mean, stdDev, calls });
