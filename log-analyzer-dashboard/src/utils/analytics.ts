@@ -1,44 +1,264 @@
 import { getStayCategory, getOccupancyProfile, parseSearchParams, type LogEntry } from './parser';
 
+// Quickselect algorithm for O(N) average time complexity percentile calculation
+function quickselect(arr: number[], k: number): number {
+    if (arr.length === 0) return 0;
+
+    let left = 0;
+    let right = arr.length - 1;
+
+    while (left <= right) {
+        let pivotIndex = partition(arr, left, right);
+        if (pivotIndex === k) {
+            return arr[k];
+        } else if (pivotIndex < k) {
+            left = pivotIndex + 1;
+        } else {
+            right = pivotIndex - 1;
+        }
+    }
+    return arr[k];
+}
+
+function partition(arr: number[], left: number, right: number): number {
+    let pivot = arr[right];
+    let i = left - 1;
+
+    for (let j = left; j < right; j++) {
+        if (arr[j] <= pivot) {
+            i++;
+            // swap
+            let temp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = temp;
+        }
+    }
+    // swap pivot
+    let temp = arr[i + 1];
+    arr[i + 1] = arr[right];
+    arr[right] = temp;
+
+    return i + 1;
+}
+
 export const analyzeLogs = (logs: LogEntry[]) => {
     if (logs.length === 0) return null;
 
-    const sortedLogs = logs;
+    // Fast check if already sorted
+    let isSorted = true;
+    for (let i = 1; i < logs.length; i++) {
+        if (logs[i].timestamp.getTime() < logs[i - 1].timestamp.getTime()) {
+            isSorted = false;
+            break;
+        }
+    }
+    const sortedLogs = isSorted ? logs : [...logs].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
     const startTime = sortedLogs[0].timestamp;
     const endTime = sortedLogs[sortedLogs.length - 1].timestamp;
 
     const totalRequests = sortedLogs.length;
     const timeSpan = endTime.getTime() - startTime.getTime();
-    const errors = sortedLogs.filter(log => log.statusCode >= 400);
-    const totalErrors = errors.length;
+
+    let totalErrors = 0;
+    let clientErrors = 0;
+    let serverErrors = 0;
+    const errorCodes: Record<string, number> = {};
+
+    const endpoints: Record<string, { calls: number; errors: number; latencies: number[] }> = {};
+    const ips: Record<string, { calls: number; errors: number }> = {};
+
+    const hotelCodes: Record<string, number> = {};
+    const compositions: Record<string, number> = {};
+
+    const stayCategories = ['Short', 'Standard', 'Long', 'Extended'];
+    const occupancyProfiles = ['Single', 'Double', 'Family', 'Other'];
+
+    const stayStatsInit = stayCategories.reduce((acc, cat) => {
+        acc[cat] = { calls: 0, errors: 0, totalLatency: 0, latencies: [] };
+        return acc;
+    }, {} as Record<string, { calls: number; errors: number; totalLatency: number; latencies: number[] }>);
+
+    const occupancyStatsInit = occupancyProfiles.reduce((acc, prof) => {
+        acc[prof] = { calls: 0, errors: 0, totalLatency: 0, latencies: [] };
+        return acc;
+    }, {} as Record<string, { calls: number; errors: number; totalLatency: number; latencies: number[] }>);
+
+    const matrixInit = {} as Record<string, Record<string, { calls: number; errors: number; totalLatency: number; latencies: number[] }>>;
+    stayCategories.forEach(cat => {
+        matrixInit[cat] = {};
+        occupancyProfiles.forEach(prof => {
+            matrixInit[cat][prof] = { calls: 0, errors: 0, totalLatency: 0, latencies: [] };
+        });
+    });
+
+    let totalStayDuration = 0;
+    let stayDurationCount = 0;
+
+    const timeMap = new Map<number, { requests: number; errors: number; totalLatency: number }>();
+    const requestsPerWindow1: { [key: number]: number } = {};
+    const requestsPerWindow15: { [key: number]: number } = {};
+    const requestsPerWindow60: { [key: number]: number } = {};
+
+    let totalLatency = 0;
+
+    const distribution = {
+        under50: 0,
+        under200: 0,
+        under500: 0,
+        under1000: 0,
+        under3000: 0,
+        over3000: 0
+    };
+
+    const deviceCategories = {
+        desktop: 0,
+        mobile: 0,
+        crawler: 0,
+        scraper: 0,
+        unknown: 0
+    };
+
+    const botStats = new Map<string, { count: number; errorCount: number; totalLatency: number }>();
+
+    // ONE BIG LOOP!
+    for (let i = 0; i < sortedLogs.length; i++) {
+        const log = sortedLogs[i];
+        const isError = log.statusCode >= 400;
+        
+        // Error stats
+        if (isError) {
+            totalErrors++;
+            if (log.statusCode < 500) clientErrors++;
+            else serverErrors++;
+
+            errorCodes[log.statusCode] = (errorCodes[log.statusCode] || 0) + 1;
+        }
+
+        // Endpoint stats
+        if (!endpoints[log.uriStem]) {
+            endpoints[log.uriStem] = { calls: 0, errors: 0, latencies: [] };
+        }
+        endpoints[log.uriStem].calls++;
+        if (isError) endpoints[log.uriStem].errors++;
+        endpoints[log.uriStem].latencies.push(log.timeTaken);
+
+        // IP stats
+        if (!ips[log.clientIp]) {
+            ips[log.clientIp] = { calls: 0, errors: 0 };
+        }
+        ips[log.clientIp].calls++;
+        if (isError) ips[log.clientIp].errors++;
+
+        // Search stats
+        if (log.uriStem.includes('singleHotelSearch')) {
+            let hc = log.hotelCode;
+            let comp = log.composition;
+            let sd = log.stayDuration;
+            let tg = log.totalGuests;
+            let cp = log.childrenPresent;
+
+            if (hc === undefined || hc === null || comp === undefined || comp === null || sd === undefined || sd === null || tg === undefined || tg === null || cp === undefined || cp === null) {
+                const parsed = parseSearchParams(log.uriStem);
+                if (hc === undefined || hc === null) hc = parsed.hotelCode;
+                if (comp === undefined || comp === null) comp = parsed.composition;
+                if (sd === undefined || sd === null) sd = parsed.stayDuration;
+                if (tg === undefined || tg === null) tg = parsed.totalGuests;
+                if (cp === undefined || cp === null) cp = parsed.childrenPresent;
+            }
+
+            if (hc) hotelCodes[hc] = (hotelCodes[hc] || 0) + 1;
+            if (comp) compositions[comp] = (compositions[comp] || 0) + 1;
+
+            if (sd !== undefined && sd !== null) {
+                totalStayDuration += sd;
+                stayDurationCount++;
+            }
+
+            const stayCat = getStayCategory(sd);
+            const occProf = getOccupancyProfile(comp, tg, cp);
+
+            if (stayCat && stayStatsInit[stayCat]) {
+                stayStatsInit[stayCat].calls++;
+                if (isError) stayStatsInit[stayCat].errors++;
+                stayStatsInit[stayCat].latencies.push(log.timeTaken);
+            }
+
+            if (occProf && occupancyStatsInit[occProf]) {
+                occupancyStatsInit[occProf].calls++;
+                if (isError) occupancyStatsInit[occProf].errors++;
+                occupancyStatsInit[occProf].latencies.push(log.timeTaken);
+            }
+
+            if (stayCat && occProf && matrixInit[stayCat] && matrixInit[stayCat][occProf]) {
+                matrixInit[stayCat][occProf].calls++;
+                if (isError) matrixInit[stayCat][occProf].errors++;
+                matrixInit[stayCat][occProf].latencies.push(log.timeTaken);
+            }
+        }
+
+        // Time bins and throughput
+        const timeMs = log.timestamp.getTime();
+
+        const bin60s = Math.floor(timeMs / 60000);
+        requestsPerWindow1[bin60s] = (requestsPerWindow1[bin60s] || 0) + 1;
+
+        const bin15m = Math.floor(timeMs / (15 * 60000));
+        requestsPerWindow15[bin15m] = (requestsPerWindow15[bin15m] || 0) + 1;
+
+        const bin60m = Math.floor(timeMs / (60 * 60000));
+        requestsPerWindow60[bin60m] = (requestsPerWindow60[bin60m] || 0) + 1;
+
+        const bin = bin60s * 60000;
+        const existing = timeMap.get(bin) || { requests: 0, errors: 0, totalLatency: 0 };
+        existing.requests++;
+        if (isError) existing.errors++;
+        existing.totalLatency += log.timeTaken;
+        timeMap.set(bin, existing);
+
+        // Latency
+        totalLatency += log.timeTaken;
+
+        const t = log.timeTaken;
+        if (t < 50) distribution.under50++;
+        else if (t < 200) distribution.under200++;
+        else if (t < 500) distribution.under500++;
+        else if (t < 1000) distribution.under1000++;
+        else if (t < 3000) distribution.under3000++;
+        else distribution.over3000++;
+
+        // Devices and Bots
+        const cat = log.deviceCategory || 'unknown';
+        if (cat in deviceCategories) {
+            deviceCategories[cat as keyof typeof deviceCategories]++;
+        } else {
+            deviceCategories.unknown++;
+        }
+
+        if (log.userAgent && (cat === 'crawler' || cat === 'scraper')) {
+            const botExisting = botStats.get(log.userAgent) || { count: 0, errorCount: 0, totalLatency: 0 };
+            botExisting.count++;
+            if (isError) {
+                botExisting.errorCount++;
+            }
+            botExisting.totalLatency += log.timeTaken;
+            botStats.set(log.userAgent, botExisting);
+        }
+    }
+
     const errorRate = totalRequests > 0 ? (totalErrors / totalRequests) * 100 : 0;
-    const clientErrors = errors.filter(log => log.statusCode >= 400 && log.statusCode < 500).length;
-    const serverErrors = errors.filter(log => log.statusCode >= 500).length;
-    const errorCodes = errors.reduce((acc, log) => { acc[log.statusCode] = (acc[log.statusCode] || 0) + 1; return acc; }, {} as { [key: string]: number });
 
     const p95 = (arr: number[]) => {
         if (arr.length === 0) return 0;
-        const sorted = [...arr].sort((a, b) => a - b);
-        const index = Math.ceil(0.95 * sorted.length) - 1;
-        return sorted[index];
+        const index = Math.ceil(0.95 * arr.length) - 1;
+        return quickselect([...arr], index);
     };
 
     const p99 = (arr: number[]) => {
         if (arr.length === 0) return 0;
-        const sorted = [...arr].sort((a, b) => a - b);
-        const index = Math.ceil(0.99 * sorted.length) - 1;
-        return sorted[index];
+        const index = Math.ceil(0.99 * arr.length) - 1;
+        return quickselect([...arr], index);
     };
-
-    const endpoints = sortedLogs.reduce((acc, log) => {
-        if (!acc[log.uriStem]) {
-            acc[log.uriStem] = { calls: 0, errors: 0, latencies: [] };
-        }
-        acc[log.uriStem].calls++;
-        if (log.statusCode >= 400) acc[log.uriStem].errors++;
-        acc[log.uriStem].latencies.push(log.timeTaken);
-        return acc;
-    }, {} as { [key: string]: { calls: number; errors: number; latencies: number[] } });
 
     const allEndpoints = Object.entries(endpoints).map(([uri, data]) => ({
         uri,
@@ -52,13 +272,6 @@ export const analyzeLogs = (logs: LogEntry[]) => {
 
     const topEndpoints = allEndpoints.slice(0, 10);
 
-    const ips = sortedLogs.reduce((acc, log) => {
-        if (!acc[log.clientIp]) acc[log.clientIp] = { calls: 0, errors: 0 };
-        acc[log.clientIp].calls++;
-        if (log.statusCode >= 400) acc[log.clientIp].errors++;
-        return acc;
-    }, {} as { [key: string]: { calls: number; errors: number } });
-
     const allIps = Object.entries(ips).map(([ip, data]) => ({
         ip,
         totalCalls: data.calls,
@@ -67,96 +280,6 @@ export const analyzeLogs = (logs: LogEntry[]) => {
     })).sort((a, b) => b.totalCalls - a.totalCalls);
 
     const topIps = allIps.slice(0, 10).map(x => [x.ip, x.totalCalls] as [string, number]);
-
-    const searchLogs = sortedLogs.filter(log => log.uriStem.includes('singleHotelSearch'));
-    const hotelCodes = searchLogs.reduce((acc, log) => {
-        let hc = log.hotelCode;
-        if (hc === undefined || hc === null) {
-            const match = log.uriStem.match(/[?&]hotelCode=([^&]+)/);
-            hc = match ? decodeURIComponent(match[1]) : null;
-        }
-        if (hc) acc[hc] = (acc[hc] || 0) + 1;
-        return acc;
-    }, {} as { [key: string]: number });
-
-    const compositions = searchLogs.reduce((acc, log) => {
-        let comp = log.composition;
-        if (comp === undefined || comp === null) {
-            const match = log.uriStem.match(/[?&]composition=([^&]+)/);
-            comp = match ? decodeURIComponent(match[1]) : null;
-        }
-        if (comp) acc[comp] = (acc[comp] || 0) + 1;
-        return acc;
-    }, {} as { [key: string]: number });
-
-    const stayCategories = ['Short', 'Standard', 'Long', 'Extended'];
-    const occupancyProfiles = ['Single', 'Double', 'Family', 'Other'];
-
-    const stayStatsInit = stayCategories.reduce((acc, cat) => {
-        acc[cat] = { calls: 0, errors: 0, latencies: [] };
-        return acc;
-    }, {} as Record<string, { calls: number; errors: number; latencies: number[] }>);
-
-    const occupancyStatsInit = occupancyProfiles.reduce((acc, prof) => {
-        acc[prof] = { calls: 0, errors: 0, latencies: [] };
-        return acc;
-    }, {} as Record<string, { calls: number; errors: number; latencies: number[] }>);
-
-    const matrixInit = {} as Record<string, Record<string, { calls: number; errors: number; latencies: number[] }>>;
-    stayCategories.forEach(cat => {
-        matrixInit[cat] = {};
-        occupancyProfiles.forEach(prof => {
-            matrixInit[cat][prof] = { calls: 0, errors: 0, latencies: [] };
-        });
-    });
-
-    let totalStayDuration = 0;
-    let stayDurationCount = 0;
-
-    searchLogs.forEach(log => {
-        let comp = log.composition;
-        if (comp === undefined || comp === null) {
-            const match = log.uriStem.match(/[?&]composition=([^&]+)/);
-            comp = match ? decodeURIComponent(match[1]) : null;
-        }
-        
-        let sd = log.stayDuration;
-        let tg = log.totalGuests;
-        let cp = log.childrenPresent;
-        
-        if (sd === undefined || sd === null || tg === undefined || tg === null || cp === undefined || cp === null) {
-            const parsed = parseSearchParams(log.uriStem);
-            if (sd === undefined || sd === null) sd = parsed.stayDuration;
-            if (tg === undefined || tg === null) tg = parsed.totalGuests;
-            if (cp === undefined || cp === null) cp = parsed.childrenPresent;
-        }
-
-        if (sd !== undefined && sd !== null) {
-            totalStayDuration += sd;
-            stayDurationCount++;
-        }
-
-        const stayCat = getStayCategory(sd);
-        const occProf = getOccupancyProfile(comp, tg, cp);
-
-        if (stayCat && stayStatsInit[stayCat]) {
-            stayStatsInit[stayCat].calls++;
-            if (log.statusCode >= 400) stayStatsInit[stayCat].errors++;
-            stayStatsInit[stayCat].latencies.push(log.timeTaken);
-        }
-
-        if (occProf && occupancyStatsInit[occProf]) {
-            occupancyStatsInit[occProf].calls++;
-            if (log.statusCode >= 400) occupancyStatsInit[occProf].errors++;
-            occupancyStatsInit[occProf].latencies.push(log.timeTaken);
-        }
-
-        if (stayCat && occProf && matrixInit[stayCat] && matrixInit[stayCat][occProf]) {
-            matrixInit[stayCat][occProf].calls++;
-            if (log.statusCode >= 400) matrixInit[stayCat][occProf].errors++;
-            matrixInit[stayCat][occProf].latencies.push(log.timeTaken);
-        }
-    });
 
     const avgStayDuration = stayDurationCount > 0 ? totalStayDuration / stayDurationCount : 0;
     const familyCalls = occupancyStatsInit['Family']?.calls || 0;
@@ -168,7 +291,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         totalCalls: data.calls,
         errorCount: data.errors,
         errorRate: data.calls > 0 ? (data.errors / data.calls) * 100 : 0,
-        avgLatency: data.calls > 0 ? data.latencies.reduce((a, b) => a + b, 0) / data.calls : 0,
+        avgLatency: data.calls > 0 ? data.totalLatency / data.calls : 0,
         p95Latency: p95(data.latencies),
     }));
 
@@ -177,7 +300,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         totalCalls: data.calls,
         errorCount: data.errors,
         errorRate: data.calls > 0 ? (data.errors / data.calls) * 100 : 0,
-        avgLatency: data.calls > 0 ? data.latencies.reduce((a, b) => a + b, 0) / data.calls : 0,
+        avgLatency: data.calls > 0 ? data.totalLatency / data.calls : 0,
         p95Latency: p95(data.latencies),
     }));
 
@@ -200,7 +323,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
                 totalCalls: data.calls,
                 errorCount: data.errors,
                 errorRate: data.calls > 0 ? (data.errors / data.calls) * 100 : 0,
-                avgLatency: data.calls > 0 ? data.latencies.reduce((a, b) => a + b, 0) / data.calls : 0,
+                avgLatency: data.calls > 0 ? data.totalLatency / data.calls : 0,
                 p95Latency: p95(data.latencies),
             });
         });
@@ -270,28 +393,21 @@ export const analyzeLogs = (logs: LogEntry[]) => {
             });
         });
 
-    // ─── Performance Outliers & Statistical Calculations ─────────────────────────
-    
-    // Calculate overall mean & stdDev for latency
-    const totalLatency = sortedLogs.reduce((sum, log) => sum + log.timeTaken, 0);
     const overallMean = totalRequests > 0 ? totalLatency / totalRequests : 0;
     const overallVariance = totalRequests > 0 
         ? sortedLogs.reduce((sum, log) => sum + Math.pow(log.timeTaken - overallMean, 2), 0) / totalRequests 
         : 0;
     const overallStdDev = Math.sqrt(overallVariance);
 
-    // Calculate mean & stdDev per endpoint
     const endpointStats = new Map<string, { mean: number; stdDev: number; calls: number }>();
     Object.entries(endpoints).forEach(([uri, data]) => {
         const calls = data.calls;
-        const sum = data.latencies.reduce((a, b) => a + b, 0);
-        const mean = sum / calls;
+        const mean = data.totalLatency / calls;
         const variance = data.latencies.reduce((sumVal, val) => sumVal + Math.pow(val - mean, 2), 0) / calls;
         const stdDev = Math.sqrt(variance);
         endpointStats.set(uri, { mean, stdDev, calls });
     });
 
-    // Flag anomalies (Outliers)
     const outliers: {
         timestamp: Date;
         uriStem: string;
@@ -304,11 +420,12 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         endpointStdDev: number;
     }[] = [];
 
-    sortedLogs.forEach(log => {
+    // Second loop for outliers since it needs endpoint stats first
+    for (let i = 0; i < sortedLogs.length; i++) {
+        const log = sortedLogs[i];
         const stats = endpointStats.get(log.uriStem);
         if (stats && stats.calls >= 5 && stats.stdDev > 0) {
             const zScore = (log.timeTaken - stats.mean) / stats.stdDev;
-            // Flag if Z-score > 3, latency > 100ms
             if (zScore > 3.0 && log.timeTaken > 100) {
                 outliers.push({
                     timestamp: log.timestamp,
@@ -323,52 +440,37 @@ export const analyzeLogs = (logs: LogEntry[]) => {
                 });
             }
         }
-    });
+    }
 
-    // Sort outliers by zScore descending
     outliers.sort((a, b) => b.zScore - a.zScore);
     const latencyOutliers = outliers.slice(0, 500);
 
-    // Anomaly correlations
     const ipCounts: Record<string, number> = {};
-    outliers.forEach(o => { ipCounts[o.clientIp] = (ipCounts[o.clientIp] || 0) + 1; });
+    const methodCounts: Record<string, number> = {};
+    const statusCounts: Record<number, number> = {};
+
+    for (let i = 0; i < outliers.length; i++) {
+        const o = outliers[i];
+        ipCounts[o.clientIp] = (ipCounts[o.clientIp] || 0) + 1;
+        const m = o.method || 'GET';
+        methodCounts[m] = (methodCounts[m] || 0) + 1;
+        statusCounts[o.statusCode] = (statusCounts[o.statusCode] || 0) + 1;
+    }
+
     const ipCorrelation = Object.entries(ipCounts)
         .map(([ip, count]) => ({ value: ip, count, percentage: outliers.length > 0 ? (count / outliers.length) * 100 : 0 }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
 
-    const methodCounts: Record<string, number> = {};
-    outliers.forEach(o => { const m = o.method || 'GET'; methodCounts[m] = (methodCounts[m] || 0) + 1; });
     const methodCorrelation = Object.entries(methodCounts)
         .map(([method, count]) => ({ value: method, count, percentage: outliers.length > 0 ? (count / outliers.length) * 100 : 0 }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
 
-    const statusCounts: Record<number, number> = {};
-    outliers.forEach(o => { statusCounts[o.statusCode] = (statusCounts[o.statusCode] || 0) + 1; });
     const statusCorrelation = Object.entries(statusCounts)
         .map(([status, count]) => ({ value: parseInt(status, 10), count, percentage: outliers.length > 0 ? (count / outliers.length) * 100 : 0 }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
-
-    // Predefined buckets: <50ms, 50-200ms, 200-500ms, 500-1000ms, 1s-3s, 3s+
-    const distribution = {
-        under50: 0,
-        under200: 0,
-        under500: 0,
-        under1000: 0,
-        under3000: 0,
-        over3000: 0
-    };
-    sortedLogs.forEach(log => {
-        const t = log.timeTaken;
-        if (t < 50) distribution.under50++;
-        else if (t < 200) distribution.under200++;
-        else if (t < 500) distribution.under500++;
-        else if (t < 1000) distribution.under1000++;
-        else if (t < 3000) distribution.under3000++;
-        else distribution.over3000++;
-    });
 
     const distributionData = [
         { range: '< 50ms', count: distribution.under50 },
@@ -378,35 +480,6 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         { range: '1s-3s', count: distribution.under3000 },
         { range: '3s+', count: distribution.over3000 },
     ];
-
-    const deviceCategories = {
-        desktop: 0,
-        mobile: 0,
-        crawler: 0,
-        scraper: 0,
-        unknown: 0
-    };
-
-    const botStats = new Map<string, { count: number; errorCount: number; totalLatency: number }>();
-
-    sortedLogs.forEach(log => {
-        const cat = log.deviceCategory || 'unknown';
-        if (cat in deviceCategories) {
-            deviceCategories[cat as keyof typeof deviceCategories]++;
-        } else {
-            deviceCategories.unknown++;
-        }
-
-        if (log.userAgent && (cat === 'crawler' || cat === 'scraper')) {
-            const existing = botStats.get(log.userAgent) || { count: 0, errorCount: 0, totalLatency: 0 };
-            existing.count++;
-            if (log.statusCode >= 400) {
-                existing.errorCount++;
-            }
-            existing.totalLatency += log.timeTaken;
-            botStats.set(log.userAgent, existing);
-        }
-    });
 
     const topBots = Array.from(botStats.entries())
         .map(([ua, data]) => ({
@@ -422,7 +495,6 @@ export const analyzeLogs = (logs: LogEntry[]) => {
             categories: deviceCategories,
             topBots
         },
-
         totalRequests,
         timeSpan: (timeSpan / 1000 / 60).toFixed(2),
         totalErrors,
