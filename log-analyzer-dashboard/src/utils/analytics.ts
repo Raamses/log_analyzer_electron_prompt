@@ -65,7 +65,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
     let serverErrors = 0;
     const errorCodes: Record<string, number> = {};
 
-    const endpoints: Record<string, { calls: number; errors: number; latencies: number[] }> = {};
+    const endpoints: Record<string, { calls: number; errors: number; totalLatency: number; latencies: number[] }> = {};
     const ips: Record<string, { calls: number; errors: number }> = {};
 
     const hotelCodes: Record<string, number> = {};
@@ -137,10 +137,11 @@ export const analyzeLogs = (logs: LogEntry[]) => {
 
         // Endpoint stats
         if (!endpoints[log.uriStem]) {
-            endpoints[log.uriStem] = { calls: 0, errors: 0, latencies: [] };
+            endpoints[log.uriStem] = { calls: 0, errors: 0, totalLatency: 0, latencies: [] };
         }
         endpoints[log.uriStem].calls++;
         if (isError) endpoints[log.uriStem].errors++;
+        endpoints[log.uriStem].totalLatency += log.timeTaken;
         endpoints[log.uriStem].latencies.push(log.timeTaken);
 
         // IP stats
@@ -181,18 +182,21 @@ export const analyzeLogs = (logs: LogEntry[]) => {
             if (stayCat && stayStatsInit[stayCat]) {
                 stayStatsInit[stayCat].calls++;
                 if (isError) stayStatsInit[stayCat].errors++;
+                stayStatsInit[stayCat].totalLatency += log.timeTaken;
                 stayStatsInit[stayCat].latencies.push(log.timeTaken);
             }
 
             if (occProf && occupancyStatsInit[occProf]) {
                 occupancyStatsInit[occProf].calls++;
                 if (isError) occupancyStatsInit[occProf].errors++;
+                occupancyStatsInit[occProf].totalLatency += log.timeTaken;
                 occupancyStatsInit[occProf].latencies.push(log.timeTaken);
             }
 
             if (stayCat && occProf && matrixInit[stayCat] && matrixInit[stayCat][occProf]) {
                 matrixInit[stayCat][occProf].calls++;
                 if (isError) matrixInit[stayCat][occProf].errors++;
+                matrixInit[stayCat][occProf].totalLatency += log.timeTaken;
                 matrixInit[stayCat][occProf].latencies.push(log.timeTaken);
             }
         }
@@ -265,7 +269,7 @@ export const analyzeLogs = (logs: LogEntry[]) => {
         totalCalls: data.calls,
         errorCount: data.errors,
         errorRate: data.calls > 0 ? (data.errors / data.calls) * 100 : 0,
-        avgLatency: data.latencies.reduce((a, b) => a + b, 0) / data.calls,
+        avgLatency: data.calls > 0 ? data.totalLatency / data.calls : 0,
         p95Latency: p95(data.latencies),
         p99Latency: p99(data.latencies),
     })).sort((a, b) => b.totalCalls - a.totalCalls);
