@@ -159,12 +159,11 @@ export function parseSearchParams(url: string): SearchParams {
         let hasGuestParams = false;
         
         for (let i = 0; i < pairs.length; i++) {
-            const eqIdx = pairs[i].indexOf('=');
-            if (eqIdx === -1) continue;
+            const pair = pairs[i].split('=');
+            if (!pair[1]) continue;
             
-            const key = pairs[i].substring(0, eqIdx);
-            const val = safeDecodeURIComponent(pairs[i].substring(eqIdx + 1));
-            if (!val) continue;
+            const key = pair[0];
+            const val = safeDecodeURIComponent(pair[1]);
             
             if (key === 'hotelCode' && !result.hotelCode) {
                 result.hotelCode = val;
@@ -194,13 +193,10 @@ export function parseSearchParams(url: string): SearchParams {
     // 3. Fallback to nested JSON 'query' parameter
     if (!result.hotelCode || !result.composition || !checkInStr || !checkOutStr) {
         for (let i = 0; i < pairs.length; i++) {
-            const eqIdx = pairs[i].indexOf('=');
-            if (eqIdx === -1) continue;
-            const key = pairs[i].substring(0, eqIdx);
-            const val = pairs[i].substring(eqIdx + 1);
-            if (key === 'query' && val) {
+            const pair = pairs[i].split('=');
+            if (pair[0] === 'query' && pair[1]) {
                 try {
-                    const decodedVal = safeDecodeURIComponent(val);
+                    const decodedVal = safeDecodeURIComponent(pair[1]);
                     const parsedJson = JSON.parse(decodedVal);
                     
                     const hc = parsedJson.HotelCode || parsedJson.hotelCode;
