@@ -1,0 +1,84 @@
+{
+  "usability_criticisms": [
+    {
+      "area": "Mapping Preview Screen",
+      "issue": "The column-mapping confirmation is a friction trap. On first use it builds trust; by the 10th file it's muscle-memory-skipped; by the 50th file it's active hostility. During a 3am incident, the SRE will hammer 'Analyze' without looking — and if detection is wrong (it will be), they've committed to a broken parse with no obvious escape hatch. The 'remember per-fingerprint' mitigates only repeat files, not new-but-similar formats. The preview also creates a false sense of correctness: high confidence ≠ correct mapping, and users conflate the two.",
+      "fix": "Make the mapping step opt-in, not mandatory. Default to 'instant ingest with best-guess mapping' — show results immediately with a persistent, non-blocking banner: 'Mapping confidence: 94% • [Review] [Dismiss]'. The banner stays until dismissed; clicking Review opens the mapping drawer. For known schemas (IIS W3C, APGW, Cloudflare), skip the banner entirely after first confirmation. Add a keyboard shortcut (e.g., 'M') to jump to mapping from the table at any time.",
+      "severity": "HIGH"
+    },
+    {
+      "area": "Insight Credibility",
+      "issue": "'Stating evidence and linking to filtered rows' is table stakes, not credibility. A skeptical SRE has seen too many 'AI insights' that are just regex matches dressed up. They will ignore the rail entirely unless: (a) each insight shows the exact query/logic that produced it (e.g., 'p95 latency for /api/search: 1.2s vs 400ms baseline — computed over 1,240 requests in t+3600..t+7200'), (b) they can see the counter-examples (rows that DON'T match the pattern), (c) they can one-click promote an insight to a saved filter/dashboard tile, (d) false positives are explicitly killable ('Never show this insight again for this dataset'). Without these, the rail is noise.",
+      "fix": "Redesign insights as 'hypothesis cards': each card shows the SQL-like predicate, the supporting row count, the contradictory row count, and a 'Verify' button that opens a side-by-side comparison. Add a 'Dismiss pattern' action that trains a per-user suppression list. Surface the computation method (percentile, rate, z-score) inline. Make insights queryable — 'Show me all insights mentioning status 5xx'.",
+      "severity": "HIGH"
+    },
+    {
+      "area": "21-Role Model Leaking into UI",
+      "issue": "A two-tier experience (rich for known roles, plain for unknown) makes the app feel broken on custom formats — exactly the case it claims to solve. Unmapped columns get no type-aware filtering (no '> 500ms', no IP CIDR, no date range), no sparklines, no role-specific context menus (e.g., 'Filter by this IP' only works if role=client_ip). The user sees 'this column doesn't work properly' and blames the tool. The promise 'still ingested, still displayed, still filterable' is technically true but UX-false: a text filter on a latency column is useless.",
+      "fix": "Treat 'unknown' as a first-class role with progressive enhancement. For any column, infer type from values (number, date, IP, bool, enum) and expose type-appropriate filters automatically — no role required. Show a subtle badge 'Auto-typed as number' with a 'Promote to latency_ms' action that unlocks role-specific features. Never show a lesser UI for unknown columns; show the same UI with inferred capabilities, and make promotion one click.",
+      "severity": "HIGH"
+    },
+    {
+      "area": "Sharing / Export",
+      "issue": "7 outlets is checkbox bloat. Real JTBDs for incident work: (1) 'Paste into Slack/Teams ticket NOW' — clipboard TSV covers this. (2) 'Attach to Jira/GitHub issue' — Markdown table + insight summary covers this. (3) 'Hand off to colleague with same view' — permalink (view state only) covers this. (4) 'Load into notebook/analysis tool' — CSV/NDJSON covers this. The missing one: **'Save this investigation as a reproducible session'** — mapping + filters + insights + column layout + notes, shareable as a single file that a colleague can open and continue from exactly where you left off. PNG chart snapshots are nice-to-have; JSON export is redundant with NDJSON. Session file (.logview.json) is the right idea but undersold — it should be the PRIMARY share target, not one of seven equals.",
+      "fix": "Collapse to 3 primary actions: 'Copy for chat' (TSV), 'Save session' (.logview.json with mapping+view+notes), 'Export for analysis' (CSV/NDJSON). Make 'Save session' the prominent CTA. Add 'Redact before share' as a toggle on all three. Drop PNG, JSON, Markdown, permalink as separate items — fold permalink into 'Save session' (encode view state in URL fragment for quick links, but session file is canonical).",
+      "severity": "MEDIUM"
+    },
+    {
+      "area": "Information Architecture (13-inch laptop)",
+      "issue": "Table + insights rail + filters sidebar + charts + filter chips + header = 6 concurrent UI regions. On a 13\" at incident density, something loses. The plan doesn't specify collapse behavior. The current code puts filters in a slide-over sidebar (good), but charts and summary cards live ABOVE the table, pushing the table — the primary view — below the fold. During an incident, the table IS the primary view; charts are secondary. The insights rail (right side) competes with horizontal scroll on wide log tables.",
+      "fix": "Declare the virtualized table as the single primary view. Everything else is a collapsible overlay or drawer: Filters = left drawer (current), Insights = right drawer (not a persistent rail), Charts = bottom drawer (expandable), Summary cards = inline header row that collapses to a single line. On < 1024px width, only the table + header are visible by default; drawers open on demand. Horizontal scroll on the table must NEVER be blocked by a right rail — insights must be a drawer that floats over the table, not a fixed column.",
+      "severity": "HIGH"
+    },
+    {
+      "area": "Interaction Latency & Focus Management",
+      "issue": "Specific failure modes that will feel bad despite technically correct code: (1) Refilter resets scroll to top — user loses place in a 100k-row table. (2) Sort on 100k rows blocks main thread for 200-300ms — click feels 'sticky' even with worker sort if the UI doesn't respond optimistically. (3) Keyboard navigation: '/ ' focuses search but Escape doesn't consistently return focus to table rows. (4) Column resize drag handle is 1px in current code (line 71-78) — unusable. (5) Filter chips render above table; adding a filter causes layout shift that jumps the table down. (6) Virtualization overscan not tuned — fast scroll shows blank flashes. (7) No 'jump to row N' or 'jump to timestamp' — critical for incident correlation.",
+      "fix": "(1) Preserve scroll anchor: on refilter, find the first visible row's unique key (request_id or row index), re-apply filter, scroll to that key. (2) Optimistic sort indicator immediately; show subtle shimmer on rows being re-sorted; never block interaction. (3) Focus trap spec: '/' → search input; Escape → clear search + focus first visible row; '?' → show shortcuts overlay. (4) 12px drag handle with visual affordance. (5) Filter chips in fixed-height bar or overlay, not pushing table. (6) Overscan = 3x viewport height. (7) Add Cmd/Ctrl+G 'Go to row/timestamp' command palette.",
+      "severity": "HIGH"
+    }
+  ],
+  "ideation": [
+    {
+      "idea": "Time-travel diff: compare two time windows side-by-side in the SAME table (split view or toggle) with automatic delta highlighting — 'show me what changed between the 5min before the alert and the 5min after'",
+      "value": "This is the #1 incident workflow: correlate before/after. grep/jq/Kibana require multiple queries and mental diff. Built-in split view with row-level diff (new/removed/changed columns highlighted) would be a genuine 'I need this' feature.",
+      "effort": "M",
+      "displaces": "PerformanceAnomalies/LatencyOutliers components — they're narrow; time-diff subsumes anomaly detection for the most common case"
+    },
+    {
+      "idea": "Pivot table / faceted breakdown on ANY column with one click — 'break down 5xx by endpoint', 'break down latency p95 by client_ip', 'break down request count by cache_status' — rendered as an inline, sortable, drillable table",
+      "value": "SREs live in pivot tables. Current plan has fixed charts (StatusDistribution, Throughput). A generic pivot engine that works on ANY role (including inferred/unknown) replaces 5 specialized chart components and answers 'show me X by Y' for arbitrary X,Y.",
+      "effort": "M",
+      "displaces": "StatusDistributionChart, ThroughputChart, ServerThroughput, TrafficSegmentation — all become pivot presets"
+    },
+    {
+      "idea": "Query-by-example: click a row → 'Find similar' → app extracts the row's salient features (same endpoint, same status, same client subnet, same user_agent family) and proposes a filter chip set. One click applies it.",
+      "value": "Incident workflow: 'this error looks weird, show me others like it'. Currently requires manual filter construction. QBE turns a row into a hypothesis instantly.",
+      "effort": "S",
+      "displaces": "None — additive, but reduces need for complex filter sidebar interactions"
+    },
+    {
+      "idea": "Correlation highlight: when filtering on column A, show a sparkline/mini-histogram on every OTHER column header showing the distribution of that column WITHIN the filtered set vs the full set. Instantly reveals 'this 5xx spike is only on /api/payment from subnet 10.x'",
+      "value": "Turns the table header into a correlation dashboard. No separate charts needed. Works on unknown columns too (via inferred type).",
+      "effort": "M",
+      "displaces": "Insights rail (partially) — correlations become visible without separate detectors"
+    },
+    {
+      "idea": "Session replay: the .logview.json session file should capture not just view state but the analyst's NARRATIVE — annotated rows, written hypotheses, dismissed insights. Opening a session restores the investigation train of thought, not just the filters.",
+      "value": "Hand-off during incident escalation is broken today — screenshots + Slack messages lose context. A shareable, annotated session is a force multiplier for on-call rotation.",
+      "effort": "S",
+      "displaces": "Current session file plan (underspecified) — promotes it to first-class feature"
+    }
+  ],
+  "killer_feature": "Time-travel diff (split-view before/after with delta highlighting) — it directly mirrors the core incident workflow 'what changed?' and has no equivalent in grep/jq/Kibana without significant setup.",
+  "cheapest_high_impact": "Query-by-example ('Find similar' from a row) — ~2 days to implement (extract row features → propose filter chips → one-click apply), immediately usable on day 1, works on any format including unknown columns.",
+  "cut_to_make_room": [
+    "PNG export — redundant with screenshot tools",
+    "JSON export — NDJSON covers machine-readable",
+    "Markdown export — session file + clipboard TSV covers docs",
+    "Permalink as separate feature — fold into session file (URL fragment for quick links)",
+    "Fixed charts (StatusDistribution, Throughput, ServerThroughput, TrafficSegmentation) — replace with generic pivot engine",
+    "LatencyOutliers component — subsumed by time-travel diff + pivot",
+    "GeoIP lookup modal — keep but make it a plugin, not core; privacy modal adds friction"
+  ],
+  "verdict": "The UX plan has strong foundations (columnar architecture, role-based mapping, honest error states) but critically underestimates friction in the mapping step, overestimates insight credibility, and leaks the role model into a two-tier UI that breaks the 'generic' promise. The IA doesn't collapse for 13\" incident use. Several 'nice-to-have' exports and fixed charts bloat scope while missing the actual incident workflows (time-diff, pivot, query-by-example, annotated hand-off). Recommend: (1) make mapping preview opt-in with instant-ingest default, (2) promote unknown columns to first-class with inferred types, (3) collapse IA to table-primary with drawers, (4) replace fixed charts with generic pivot, (5) add time-travel diff + query-by-example + annotated sessions as the three differentiators. With these changes, the plan becomes sufficient for a v1 that SREs would choose over grep/jq for incident work."
+}
