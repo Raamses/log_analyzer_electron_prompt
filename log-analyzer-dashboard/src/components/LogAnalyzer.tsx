@@ -16,7 +16,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Dataset } from '../lib/types';
 import type { SortState, ColumnState } from './GenericTable';
-import { parseQuery, filterRows, type ParsedQuery } from '../lib/query';
+import { parseQuery, filterRows, removeClauseFromQuery, type ParsedQuery } from '../lib/query';
 import GenericTable from './GenericTable';
 import { QueryBar } from './QueryBar';
 import { FilterChips } from './FilterChips';
@@ -101,9 +101,7 @@ export const LogAnalyzer = ({ dataset }: LogAnalyzerProps) => {
   }, []);
 
   const handleRemoveClause = useCallback((index: number) => {
-    // Remove clause by rebuilding query without it
-    // (simplified: clear query for now)
-    setQuery('');
+    setQuery(prev => removeClauseFromQuery(prev, index));
   }, []);
 
   const handleClearAll = useCallback(() => {
