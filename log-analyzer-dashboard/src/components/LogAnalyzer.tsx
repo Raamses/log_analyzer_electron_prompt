@@ -14,9 +14,10 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import type { Dataset, SortState } from '../lib/types';
+import type { Dataset } from '../lib/types';
+import type { SortState, ColumnState } from './GenericTable';
 import { parseQuery, filterRows, type ParsedQuery } from '../lib/query';
-import { GenericTable, type ColumnState } from './GenericTable';
+import GenericTable from './GenericTable';
 import { QueryBar } from './QueryBar';
 import { FilterChips } from './FilterChips';
 import { InsightsRail } from './InsightsRail';
