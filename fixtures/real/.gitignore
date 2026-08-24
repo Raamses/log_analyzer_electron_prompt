@@ -1,0 +1,5 @@
+# Real logs contain PII (IPs, query strings, cookies, tokens, hostnames).
+# NEVER commit them. Sanitize first -> ../sanitized/
+*
+!.gitignore
+!README.md
