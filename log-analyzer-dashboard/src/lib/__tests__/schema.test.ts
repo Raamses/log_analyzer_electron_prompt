@@ -153,6 +153,50 @@ describe('inferSchema fallback', () => {
     const { columns } = applySchema(inferSchema(raw), raw);
     expect(columns).toHaveLength(4);
   });
+
+  it('infers status from values when name is generic', () => {
+    const raw = ['col_a', 'col_b', 'col_c'];
+    const sample = [
+      ['200', 'GET', '/api/x'],
+      ['500', 'POST', '/api/y'],
+      ['404', 'GET', '/img/a.png'],
+      ['200', 'GET', '/api/z'],
+    ];
+    const s = inferSchema(raw, sample);
+    // col_a has HTTP status codes 200/500/404
+    expect(s.bindings['col_a']?.role).toBe('status');
+    // col_b has HTTP methods
+    expect(s.bindings['col_b']?.role).toBe('method');
+    // col_c has URIs starting with /
+    expect(s.bindings['col_c']?.role).toBe('uri');
+  });
+
+  it('infers client_ip from values', () => {
+    const raw = ['field1', 'field2'];
+    const sample = [
+      ['10.0.0.1', 'hello'],
+      ['192.168.1.1', 'world'],
+      ['172.16.0.1', 'foo'],
+    ];
+    const s = inferSchema(raw, sample);
+    expect(s.bindings['field1']?.role).toBe('client_ip');
+    expect(s.bindings['field2']?.role).toBe('unknown');
+  });
+
+  it('returns unknown when no role scores above threshold', () => {
+    const raw = ['weird_col'];
+    const sample = [['abc'], ['def'], ['ghi']];
+    const s = inferSchema(raw, sample);
+    expect(s.bindings['weird_col']?.role).toBe('unknown');
+  });
+
+  it('uses CellType appropriate to inferred role', () => {
+    const raw = ['col_a'];
+    const sample = [['200'], ['500'], ['404']];
+    const s = inferSchema(raw, sample);
+    expect(s.bindings['col_a']?.role).toBe('status');
+    expect(s.bindings['col_a']?.type).toBe('int');
+  });
 });
 
 describe('applySchema', () => {
