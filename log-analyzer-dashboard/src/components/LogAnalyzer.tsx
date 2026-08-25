@@ -15,7 +15,8 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import type { Dataset, SortState } from '../lib/types';
-import { parseQuery, filterRows, type ParsedQuery } from '../lib/query';
+import { parseQuery, filterRows, type ParsedQuery, type QueryExpr } from '../lib/query';
+import { serializeQuery } from '../lib/query-serialize';
 import { GenericTable, type ColumnState } from './GenericTable';
 import { QueryBar } from './QueryBar';
 import { FilterChips } from './FilterChips';
@@ -100,10 +101,24 @@ export const LogAnalyzer = ({ dataset }: LogAnalyzerProps) => {
   }, []);
 
   const handleRemoveClause = useCallback((index: number) => {
-    // Remove clause by rebuilding query without it
-    // (simplified: clear query for now)
-    setQuery('');
-  }, []);
+    // Real clause removal: walk the AST, drop the Nth comparison leaf, re-serialize.
+    if (!parsedQuery.where) return;
+    const leaves: QueryExpr[] = [];
+    const walk = (e: QueryExpr) => {
+      if (e.type === 'comparison' || e.type === 'bareTerm') leaves.push(e);
+      else if (e.type === 'and' || e.type === 'or') { walk(e.left); walk(e.right); }
+      else if (e.type === 'not') walk(e.expr);
+    };
+    walk(parsedQuery.where);
+    if (index < 0 || index >= leaves.length) return;
+    // Remove the leaf by filtering it out and rebuilding the AND chain
+    const remaining = leaves.filter((_, i) => i !== index);
+    if (remaining.length === 0) { setQuery(''); return; }
+    const rebuilt: QueryExpr = remaining.reduce<QueryExpr>((acc, cur) =>
+      acc.type === 'and' ? { ...acc, right: cur } : { type: 'and', left: acc, right: cur }
+    );
+    setQuery(serializeQuery({ ...parsedQuery, where: rebuilt }));
+  }, [parsedQuery]);
 
   const handleClearAll = useCallback(() => {
     setQuery('');

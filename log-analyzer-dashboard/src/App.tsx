@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { useLogAnalysis } from './hooks/useLogAnalysis';
 import DashboardLayout from './components/DashboardLayout';
 import FileUploader from './components/FileUploader';
@@ -11,6 +11,8 @@ import StatusDistributionChart from './components/charts/StatusDistributionChart
 import ThroughputChart from './components/charts/ThroughputChart';
 import FilterChips from './components/FilterChips';
 import LatencyOutliers from './components/LatencyOutliers';
+import { LogAnalyzer } from './components/LogAnalyzer';
+import { entriesToDataset } from './lib/entry-to-dataset';
 import { isPrivateIp } from './utils/ipUtils';
 import { Globe, Copy, Check, ExternalLink, ShieldAlert, ShieldCheck, Loader2, Lock, X } from 'lucide-react';
 
@@ -106,7 +108,14 @@ function App() {
 
   const [modalInfo, setModalInfo] = useState<{ title: string; content: string } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showNewAnalyzer, setShowNewAnalyzer] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // LogAnalyzer: mounted when entries have been parsed.
+  const logEntryDataset = useMemo(
+    () => isParsed && allLogs.length > 0 ? entriesToDataset(allLogs, loadingFile?.name || 'uploaded.log') : null,
+    [isParsed, allLogs, loadingFile],
+  );
 
   // GeoIP / IP Intelligence states
   const [geoIpEnabled, setGeoIpEnabled] = useState<boolean>(() => {
@@ -543,6 +552,30 @@ function App() {
       )}
 
       {error && <div className="mt-6 text-center text-red-400 bg-red-950/40 border border-red-900/20 p-4 rounded-2xl font-mono text-sm">{error}</div>}
+
+      {/* LogAnalyzer: Phase 5 query-first UI */}
+      {logEntryDataset && showNewAnalyzer && (
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-slate-100">Query-First Log Explorer</h2>
+            <button
+              onClick={() => setShowNewAnalyzer(false)}
+              className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer"
+            >
+              Hide
+            </button>
+          </div>
+          <LogAnalyzer dataset={logEntryDataset} />
+        </div>
+      )}
+      {!showNewAnalyzer && logEntryDataset && (
+        <button
+          onClick={() => setShowNewAnalyzer(true)}
+          className="mt-6 text-sm text-indigo-400 hover:text-indigo-300 cursor-pointer"
+        >
+          Show Query-First Log Explorer
+        </button>
+      )}
 
       {analytics && isParsed && (
         <main className="mt-8">
