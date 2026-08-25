@@ -63,6 +63,7 @@ self.onmessage = async (e: MessageEvent<{ file: File; options?: IngestOptions }>
   const rows: string[][] = [];
   let leftover = '';
   let formatDetected = false;
+  let detectedDelimiter = ','; // preserve across chunks (fixes multi-chunk bug)
 
   const CHUNK = 8 * 1024 * 1024;
 
@@ -109,7 +110,7 @@ self.onmessage = async (e: MessageEvent<{ file: File; options?: IngestOptions }>
           continue;
         }
 
-        const delimiter = framed.format === 'tsv' ? '\t' : ',';
+        detectedDelimiter = framed.format === 'tsv' ? '\t' : ',';
 
         let entry = forceSchemaId
           ? SCHEMA_REGISTRY.find(s => s.id === forceSchemaId)
@@ -127,26 +128,33 @@ self.onmessage = async (e: MessageEvent<{ file: File; options?: IngestOptions }>
           : lines;
         for (const line of dataLines) {
           if (line.trim() === '' || line.startsWith('#')) continue;
-          const rawCells = parseDelimitedLine(line, delimiter);
-          const normRow = normalizeRow(rawCells, columns, schema);
-          rows.push(normRow);
+          try {
+            const rawCells = parseDelimitedLine(line, detectedDelimiter);
+            const normRow = normalizeRow(rawCells, columns, schema);
+            rows.push(normRow);
+          } catch {
+            skipped++;
+          }
           if (rows.length >= maxRows || (sampleRows && rows.length >= sampleRows)) break;
         }
         continue;
       }
 
-      // Subsequent chunks: parse using detected delimiter
-      const delimiter = schema?.format === 'azure-apgw' ? '\t' : ',';
+      // Subsequent chunks: parse using detected delimiter and format
       for (const line of lines) {
         lineCount++;
         if (line.trim() === '' || line.startsWith('#')) continue;
-        const rawCells = parseDelimitedLine(line, delimiter);
-        if (rawCells.length !== columns.length && columns.length > 0) {
-          while (rawCells.length < columns.length) rawCells.push('');
-          if (rawCells.length > columns.length) rawCells.length = columns.length;
+        try {
+          const rawCells = parseDelimitedLine(line, detectedDelimiter);
+          if (rawCells.length !== columns.length && columns.length > 0) {
+            while (rawCells.length < columns.length) rawCells.push('');
+            if (rawCells.length > columns.length) rawCells.length = columns.length;
+          }
+          const normRow = normalizeRow(rawCells, columns, schema!);
+          rows.push(normRow);
+        } catch {
+          skipped++;
         }
-        const normRow = normalizeRow(rawCells, columns, schema!);
-        rows.push(normRow);
 
         if (rows.length >= maxRows) {
           warnings.push(`row cap reached at ${maxRows}`);
