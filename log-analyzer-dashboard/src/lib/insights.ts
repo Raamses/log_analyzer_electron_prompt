@@ -11,7 +11,7 @@
  * degradation, not a gap).
  */
 
-import type { Dataset, ColumnDef } from '../types';
+import type { Dataset, ColumnDef, Row } from './types';
 
 export interface Insight {
   id: string;
@@ -52,17 +52,16 @@ export function generateInsights(
   if (rows.length < cfg.minSample) return insights;
 
   // Resolve columns by role
-  const statusCol = columns.find(c => c.role === 'status');
-  const latencyCol = columns.find(c => c.role === 'latency_ms');
-  const uriCol = columns.find(c => c.role === 'uri');
-  const ipCol = columns.find(c => c.role === 'client_ip');
-  const methodCol = columns.find(c => c.role === 'method');
-  const cacheCol = columns.find(c => c.role === 'cache_status');
+  const statusCol = columns.find((c: ColumnDef) => c.role === 'status');
+  const latencyCol = columns.find((c: ColumnDef) => c.role === 'latency_ms');
+  const uriCol = columns.find((c: ColumnDef) => c.role === 'uri');
+  const ipCol = columns.find((c: ColumnDef) => c.role === 'client_ip');
+  const cacheCol = columns.find((c: ColumnDef) => c.role === 'cache_status');
 
   // 1. Error rate
   if (statusCol) {
     const total = rows.length;
-    const errors = rows.filter(r => {
+    const errors = rows.filter((r: Row) => {
       const s = Number(r[statusCol.key]);
       return !isNaN(s) && s >= 400;
     }).length;
@@ -147,7 +146,7 @@ export function generateInsights(
 
   // 4. Cache health
   if (cacheCol) {
-    const hits = rows.filter(r => {
+    const hits = rows.filter((r: Row) => {
       const v = String(r[cacheCol.key] ?? '').toLowerCase();
       return v === 'hit' || v === 'cached' || v === 'fresh';
     }).length;

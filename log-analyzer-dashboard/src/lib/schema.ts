@@ -16,7 +16,7 @@
 
 import type {
   Role, CellType, TimeZoneDecl, RoleBinding, Schema, ColumnDef, TransformId,
-} from '../types';
+} from './types';
 
 export interface SchemaEntry {
   id: string;
@@ -38,9 +38,6 @@ export interface SchemaEntry {
     nullable?: boolean;
   }>>;
 }
-
-const ms = (v: string) => parseFloat(v) * 1000;
-const sec = (v: string) => parseFloat(v);
 
 export const SCHEMA_REGISTRY: SchemaEntry[] = [
   // ---------- IIS W3C Extended ----------

@@ -78,7 +78,12 @@ export function decodeBytes(buf: Uint8Array, encoding: Encoding): string {
     }
     case 'utf-16be': {
       const payload = (buf[0] === 0xfe && buf[1] === 0xff) ? buf.slice(2) : buf;
-      return getDecoder('utf-16le').decode(Buffer.from(payload).swap16());
+      const swapped = new Uint8Array(payload.byteLength);
+      for (let i = 0; i < payload.byteLength; i += 2) {
+        swapped[i] = payload[i + 1];
+        swapped[i + 1] = payload[i];
+      }
+      return getDecoder('utf-16le').decode(swapped);
     }
   }
 }
@@ -129,7 +134,7 @@ export function parseDelimitedLine(line: string, delimiter: string): string[] {
  * Join physically-wrapped CSV lines (a quoted field spanning multiple lines).
  * Returns an array of logical lines. Empty result if quotes are unbalanced.
  */
-export function unwrapLines(lines: string[], delimiter: string): string[] {
+export function unwrapLines(lines: string[], _delimiter: string): string[] {
   const out: string[] = [];
   let buf = '';
   let inQuotes = false;
@@ -164,8 +169,6 @@ function countQuotes(s: string): number {
 /* ───────────────────────── format sniffing ───────────────────────── */
 
 const W3C_HEADER_RE = /^#Fields:\s*(.+)$/;
-const COMMENT_RE = /^#/;
-
 /**
  * Score each format against the first lines of input. Returns the winner.
  * Pure heuristic — `detectSchema` disambiguates CSV/TSV later via the registry.
@@ -241,7 +244,7 @@ function isJsonObject(s: string): boolean {
 const CLF_RE = /^(\S+) (\S+) (\S+) \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d{3}) (\d+|-)( "([^"]*)" "([^"]*)")?$/;
 
 function looksLikeKeyValue(line: string): boolean {
-  const pairs = line.match(/[\w.\-]+="[^"]*"|[\w.\-]+=[^\s"]+/g);
+  const pairs = line.match(/[\w.-]+="[^"]*"|[\w.-]+=[^\s"]+/g);
   return (pairs?.length ?? 0) >= 3;
 }
 
@@ -338,7 +341,7 @@ export function extractKeyValue(lines: string[]): { columns: string[]; rows: str
   const seen = new Set<string>();
   const rows: string[][] = [];
   for (const line of lines) {
-    const pairs = [...line.matchAll(/([\w.\-]+)="([^"]*)"|([\w.\-]+)=([^\s"]+)/g)];
+    const pairs = [...line.matchAll(/([\w.-]+)="([^"]*)"|([\w.-]+)=([^\s"]+)/g)];
     const map: Record<string, string> = {};
     for (const p of pairs) {
       const k = p[1] ?? p[3];

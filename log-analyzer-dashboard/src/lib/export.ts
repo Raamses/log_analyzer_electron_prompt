@@ -6,7 +6,7 @@
  * redaction-on-export (mask IP octets, strip declared-sensitive query params).
  */
 
-import type { Dataset, ColumnDef } from '../types';
+import type { Dataset, ColumnDef, Row } from './types';
 
 export type ExportFormat = 'csv' | 'tsv' | 'json' | 'ndjson';
 
@@ -73,7 +73,7 @@ function redactQueryString(query: string, sensitive: Set<string>): string {
   try {
     const params = query.split('&');
     return params.map(p => {
-      const [k, v] = p.split('=');
+      const [k] = p.split('=');
       if (k && sensitive.has(k.toLowerCase())) return `${k}=[REDACTED]`;
       return p;
     }).join('&');
@@ -88,7 +88,7 @@ export function exportDataset(dataset: Dataset, options: ExportOptions): string 
     ? dataset.columns.filter(c => options.columns!.includes(c.key))
     : dataset.columns;
 
-  const rowIndices = options.rows ?? dataset.rows.map((_, i) => i);
+  const rowIndices = options.rows ?? dataset.rows.map((_: Row, i: number) => i);
 
   const getVal = (rowIdx: number, col: ColumnDef): string => {
     const raw = String(dataset.rows[rowIdx][col.key] ?? '');
@@ -97,21 +97,21 @@ export function exportDataset(dataset: Dataset, options: ExportOptions): string 
 
   switch (format) {
     case 'csv': {
-      const header = columns.map(c => csvEscape(c.label)).join(',');
-      const lines = rowIndices.map(i =>
-        columns.map(c => csvEscape(getVal(i, c))).join(','),
+      const header = columns.map((c: ColumnDef) => csvEscape(c.label)).join(',');
+      const lines = rowIndices.map((i: number) =>
+        columns.map((c: ColumnDef) => csvEscape(getVal(i, c))).join(','),
       );
       return [header, ...lines].join('\n');
     }
     case 'tsv': {
-      const header = columns.map(c => tsvEscape(c.label)).join('\t');
-      const lines = rowIndices.map(i =>
-        columns.map(c => tsvEscape(getVal(i, c))).join('\t'),
+      const header = columns.map((c: ColumnDef) => tsvEscape(c.label)).join('\t');
+      const lines = rowIndices.map((i: number) =>
+        columns.map((c: ColumnDef) => tsvEscape(getVal(i, c))).join('\t'),
       );
       return [header, ...lines].join('\n');
     }
     case 'json': {
-      const data = rowIndices.map(i => {
+      const data = rowIndices.map((i: number) => {
         const obj: Record<string, string> = {};
         for (const c of columns) obj[c.label] = getVal(i, c);
         return obj;
@@ -119,7 +119,7 @@ export function exportDataset(dataset: Dataset, options: ExportOptions): string 
       return JSON.stringify(data, null, 2);
     }
     case 'ndjson': {
-      return rowIndices.map(i => {
+      return rowIndices.map((i: number) => {
         const obj: Record<string, string> = {};
         for (const c of columns) obj[c.label] = getVal(i, c);
         return JSON.stringify(obj);
@@ -176,13 +176,9 @@ export function generatePermalink(state: {
 }
 
 /** Parse a permalink back into view state. */
-export function parsePermalink(hash: string): {
-  query?: string;
-  sort?: { columnKey: string; direction: string };
-  hiddenColumns?: string[];
-} {
+export function parsePermalink(hash: string): { query?: string; sort?: { columnKey: string; direction: string }; hiddenColumns?: string[] } {
   const params = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
-  const result: ReturnType<typeof generatePermalink> extends string ? Parameters<typeof parsePermalink>[0] : never = {};
+  const result: { query?: string; sort?: { columnKey: string; direction: string }; hiddenColumns?: string[] } = {};
 
   const q = params.get('q');
   if (q) result.query = q;

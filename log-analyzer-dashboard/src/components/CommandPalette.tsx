@@ -8,7 +8,7 @@
  *   - Saved views: recall filter/sort/column state
  */
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 
 export interface Command {
   id: string;
@@ -48,9 +48,13 @@ export const CommandPalette = ({ isOpen, onClose, commands }: CommandPaletteProp
     }
   }, [isOpen]);
 
-  useEffect(() => {
+  // Reset selection when search changes — derive during render to avoid
+  // calling setState inside an effect (which the lint rule forbids).
+  const queryRef = useRef(query);
+  if (queryRef.current !== query) {
+    queryRef.current = query;
     setSelectedIndex(0);
-  }, [query]);
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {

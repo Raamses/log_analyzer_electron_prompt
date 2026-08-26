@@ -31,7 +31,6 @@ export const QueryBar = ({ columns, value, onChange, onApply, error }: QueryBarP
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const [lastValid, setLastValid] = useState('');
-  const [localError, setLocalError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
@@ -74,20 +73,19 @@ export const QueryBar = ({ columns, value, onChange, onApply, error }: QueryBarP
     ).slice(0, 10);
   }, [focused, showSuggestions, columns, value]);
 
-  // Validate on change
-  useEffect(() => {
-    if (!value.trim()) {
-      setLocalError('');
-      return;
-    }
+  // Validate on change — use useMemo for derived state, not useEffect+setState
+  const validationResult = useMemo(() => {
+    if (!value.trim()) return { error: '', valid: true };
     const result = parseQuery(value);
-    if (result.errors.length > 0) {
-      setLocalError(result.errors[0]);
-    } else {
-      setLocalError('');
-      setLastValid(value);
-    }
+    if (result.errors.length > 0) return { error: result.errors[0], valid: false };
+    return { error: '', valid: true };
   }, [value]);
+
+  // Derived: remember the last valid query (for Escape reversion).
+  // Calling setState during render is acceptable for derived state.
+  if (validationResult.valid && lastValid !== value) {
+    setLastValid(value);
+  }
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -132,7 +130,7 @@ export const QueryBar = ({ columns, value, onChange, onApply, error }: QueryBarP
     inputRef.current?.focus();
   }, [value, onChange]);
 
-  const displayError = error || localError;
+  const displayError = error || validationResult.error;
 
   return (
     <div className="relative">

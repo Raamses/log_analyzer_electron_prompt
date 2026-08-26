@@ -6,7 +6,7 @@
  * context. The worker imports these; they have no side effects.
  */
 
-import type { ColumnDef, Schema, Role } from '../types';
+import type { ColumnDef, Schema, Role, RoleBinding } from './types';
 
 /* ───────────────────────── timestamp parsing (TZ-safe) ─────────────────────── */
 
@@ -17,7 +17,7 @@ import type { ColumnDef, Schema, Role } from '../types';
  * inputs (e.g. "2025-10-26 14:23:50" → local, not UTC). Each format is
  * handled explicitly instead.
  */
-export function parseTimestamp(raw: string, timezone: string): number {
+export function parseTimestamp(raw: string, _timezone: string): number {
   if (!raw || raw === '-') return NaN;
 
   // Unix epoch ms
@@ -111,7 +111,7 @@ export function normalizeRow(
   const normRow: string[] = new Array(columns.length).fill('');
   for (const col of columns) {
     const raw = rawCells[col.index] ?? '';
-    const bind = schema.bindings.find(b => b.columnKey === col.key);
+    const bind = schema.bindings.find((b: RoleBinding) => b.columnKey === col.key);
     normRow[col.index] = normalizeCell(raw, col.role, bind?.unit, schema.timezone);
   }
   return normRow;

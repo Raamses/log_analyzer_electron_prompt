@@ -6,7 +6,7 @@
  * ingest pipeline to land in the live app.
  */
 
-import type { Dataset, ColumnDef, Schema, DatasetMeta, Row } from './types';
+import type { Dataset, ColumnDef, Schema, Row } from './types';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'timestamp', sourceName: 'timestamp', label: 'Timestamp', role: 'timestamp', type: 'date', index: 0, nullable: false, confidence: 1, derived: false },
