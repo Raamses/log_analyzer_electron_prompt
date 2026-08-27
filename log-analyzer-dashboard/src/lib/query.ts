@@ -461,6 +461,135 @@ export function filterRows(
     .map(({ i }) => i);
 }
 
+/**
+ * Serialize a QueryExpr back to KQL string.
+ * Used by handleRemoveClause to reconstruct the query after removing a clause.
+ */
+export function queryExprToString(expr: QueryExpr | null): string {
+  if (!expr) return '';
+
+  switch (expr.type) {
+    case 'comparison': {
+      const field = expr.field;
+      const op = expr.op;
+      if (op === 'in') {
+        const vals = (expr.value as (string | number)[]).map(v => typeof v === 'number' ? String(v) : `"${v}"`).join(', ');
+        return `${field} in (${vals})`;
+      }
+      const value = typeof expr.value === 'number'
+        ? String(expr.value)
+        : needQuote(String(expr.value))
+          ? `"${expr.value}"`
+          : String(expr.value);
+      return `${field} ${op} ${value}`;
+    }
+    case 'bareTerm':
+      return String(expr.value);
+    case 'not':
+      return `NOT ${queryExprToString(expr.expr)}`;
+    case 'and':
+      return `${queryExprToString(expr.left)} AND ${queryExprToString(expr.right)}`;
+    case 'or':
+      return `${queryExprToString(expr.left)} OR ${queryExprToString(expr.right)}`;
+  }
+}
+
+/** Determine if a value needs quoting in KQL output */
+function needQuote(value: string): boolean {
+  // Quote if empty, contains spaces, special chars, or is not a simple bare word
+  // Simple bare words are alphanumeric + underscores + dots only
+  return value === '' || !/^[A-Za-z0-9_.-]+$/.test(value);
+}
+
+/**
+ * Count leaf clauses (comparisons + bareTerms) in a QueryExpr tree.
+ * This must match the order that FilterChips.extractComparisons uses.
+ */
+function countLeaves(expr: QueryExpr): number {
+  switch (expr.type) {
+    case 'comparison':
+    case 'bareTerm':
+      return 1;
+    case 'not':
+      return countLeaves(expr.expr);
+    case 'and':
+    case 'or':
+      return countLeaves(expr.left) + countLeaves(expr.right);
+  }
+}
+
+/**
+ * Remove the nth leaf clause (comparison or bareTerm) from a QueryExpr tree.
+ * Returns the modified tree, or null if the tree becomes empty.
+ * The index is 0-based and must match FilterChips.extractComparisons order.
+ */
+export function removeClauseAt(expr: QueryExpr | null, index: number): QueryExpr | null {
+  if (!expr) return null;
+
+  const result = removeLeaf(expr, { count: 0, removed: false }, index);
+  return result;
+}
+
+interface Counter { count: number; removed: boolean; }
+
+function removeLeaf(expr: QueryExpr, counter: Counter, target: number): QueryExpr | null {
+  // If already removed, just return the expr unchanged
+  if (counter.removed) return expr;
+
+  switch (expr.type) {
+    case 'comparison':
+    case 'bareTerm': {
+      if (counter.count === target) {
+        counter.removed = true;
+        return null;
+      }
+      counter.count++;
+      return expr;
+    }
+    case 'not': {
+      const inner = removeLeaf(expr.expr, counter, target);
+      if (inner === null) {
+        // The NOT wrapper is also removed when its inner expr is removed
+        return null;
+      }
+      return { type: 'not', expr: inner };
+    }
+    case 'and':
+    case 'or': {
+      const left = removeLeaf(expr.left, counter, target);
+      if (left === null) {
+        // Left removed — return right (or null if right is also gone)
+        return expr.right;
+      }
+      const right = removeLeaf(expr.right, counter, target);
+      if (right === null) {
+        // Right removed — return left
+        return left;
+      }
+      return { type: expr.type, left, right } as QueryExpr;
+    }
+  }
+}
+
+/**
+ * Reconstruct a full query string after removing the nth clause.
+ * Preserves the sort clause (| sort by ...) if present.
+ */
+export function removeClauseFromQuery(query: string, index: number): string {
+  const parsed = parseQuery(query);
+  if (parsed.errors.length > 0) return query; // don't modify invalid queries
+
+  const newWhere = removeClauseAt(parsed.where, index);
+  const whereStr = queryExprToString(newWhere);
+
+  if (parsed.sort) {
+    const sortStr = `sort by ${parsed.sort.field} ${parsed.sort.direction}`;
+    return whereStr ? `${whereStr} | ${sortStr}` : `| ${sortStr}`;
+  }
+
+  return whereStr;
+}
+
 function evalComparison(cell: unknown, op: ComparisonOp, value: string | number | (string | number)[]): boolean {
   if (op === 'in') {
     const arr = value as (string | number)[];

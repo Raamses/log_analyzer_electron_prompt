@@ -1,20 +1,28 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect, lazy, Suspense } from 'react';
 import { useLogAnalysis } from './hooks/useLogAnalysis';
 import DashboardLayout from './components/DashboardLayout';
 import FileUploader from './components/FileUploader';
 import SummaryCard from './components/SummaryCard';
-import ErrorSummary from './components/ErrorSummary';
-import TrafficSegmentation from './components/TrafficSegmentation';
-import ServerThroughput from './components/ServerThroughput';
-import VirtualizedLogViewer from './components/VirtualizedLogViewer';
-import StatusDistributionChart from './components/charts/StatusDistributionChart';
-import ThroughputChart from './components/charts/ThroughputChart';
-import FilterChips from './components/FilterChips';
-import LatencyOutliers from './components/LatencyOutliers';
-import { LogAnalyzer } from './components/LogAnalyzer';
-import { entriesToDataset } from './lib/entry-to-dataset';
+import { FilterChips } from './components/FilterChips';
 import { isPrivateIp } from './utils/ipUtils';
 import { Globe, Copy, Check, ExternalLink, ShieldAlert, ShieldCheck, Loader2, Lock, X } from 'lucide-react';
+
+// Code-split: these components only render after a file is parsed (analytics && isParsed).
+// Loading them lazily keeps the initial bundle under 300KB.
+const ErrorSummary = lazy(() => import('./components/ErrorSummary'));
+const TrafficSegmentation = lazy(() => import('./components/TrafficSegmentation'));
+const ServerThroughput = lazy(() => import('./components/ServerThroughput'));
+const VirtualizedLogViewer = lazy(() => import('./components/VirtualizedLogViewer'));
+const StatusDistributionChart = lazy(() => import('./components/charts/StatusDistributionChart'));
+const ThroughputChart = lazy(() => import('./components/charts/ThroughputChart'));
+const LatencyOutliers = lazy(() => import('./components/LatencyOutliers'));
+
+// Lazy fallback spinner
+const LazyFallback = () => (
+  <div className="flex items-center justify-center py-12">
+    <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+  </div>
+);
 
 interface GeoIpData {
     query: string;
@@ -108,14 +116,7 @@ function App() {
 
   const [modalInfo, setModalInfo] = useState<{ title: string; content: string } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [showNewAnalyzer, setShowNewAnalyzer] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // LogAnalyzer: mounted when entries have been parsed.
-  const logEntryDataset = useMemo(
-    () => isParsed && allLogs.length > 0 ? entriesToDataset(allLogs, loadingFile?.name || 'uploaded.log') : null,
-    [isParsed, allLogs, loadingFile],
-  );
 
   // GeoIP / IP Intelligence states
   const [geoIpEnabled, setGeoIpEnabled] = useState<boolean>(() => {
@@ -553,32 +554,9 @@ function App() {
 
       {error && <div className="mt-6 text-center text-red-400 bg-red-950/40 border border-red-900/20 p-4 rounded-2xl font-mono text-sm">{error}</div>}
 
-      {/* LogAnalyzer: Phase 5 query-first UI */}
-      {logEntryDataset && showNewAnalyzer && (
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-slate-100">Query-First Log Explorer</h2>
-            <button
-              onClick={() => setShowNewAnalyzer(false)}
-              className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer"
-            >
-              Hide
-            </button>
-          </div>
-          <LogAnalyzer dataset={logEntryDataset} />
-        </div>
-      )}
-      {!showNewAnalyzer && logEntryDataset && (
-        <button
-          onClick={() => setShowNewAnalyzer(true)}
-          className="mt-6 text-sm text-indigo-400 hover:text-indigo-300 cursor-pointer"
-        >
-          Show Query-First Log Explorer
-        </button>
-      )}
-
       {analytics && isParsed && (
         <main className="mt-8">
+          <Suspense fallback={<LazyFallback />}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <SummaryCard title="Total Requests" value={analytics.totalRequests} />
             <SummaryCard title="Log Time Span" value={analytics.timeSpan} unit="min" />
@@ -633,12 +611,13 @@ function App() {
               <h2 className="text-lg font-bold tracking-tight text-white">Log Viewer Console</h2>
               <p className="text-xs text-slate-400 mt-1">Monospace terminal trace of all filtered transaction records</p>
             </div>
-            <VirtualizedLogViewer 
-              logs={logs} 
+            <VirtualizedLogViewer
+              logs={logs}
               onToggleIp={toggleIp}
               onLookupIp={handleLookupIp}
             />
           </div>
+          </Suspense>
         </main>
       )}
       </div>
