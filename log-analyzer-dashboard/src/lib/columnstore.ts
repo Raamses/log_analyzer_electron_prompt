@@ -130,8 +130,8 @@ export class Int32ColumnStore implements NumericColumn {
   }
 
   blocks(): ArrayBuffer[] {
-    const bufs: ArrayBuffer[] = this.typedBlocks.map((b) => b.buffer);
-    for (const p of this._presence) if (p) bufs.push(p.buffer);
+    const bufs: ArrayBuffer[] = this.typedBlocks.map((b) => b.buffer as ArrayBuffer);
+    for (const p of this._presence) if (p) bufs.push(p.buffer as ArrayBuffer);
     return bufs;
   }
 
@@ -142,7 +142,7 @@ export class Int32ColumnStore implements NumericColumn {
   toDTO(): SerializedColumn {
     return {
       type: this.type,
-      blockBuffers: this.typedBlocks.map((b) => b.buffer),
+      blockBuffers: this.typedBlocks.map((b) => b.buffer as ArrayBuffer),
       presenceBuffer: null,
       dictionary: null,
       rowCount: this._length,
@@ -217,7 +217,7 @@ export class Float64ColumnStore implements NumericColumn {
   }
 
   blocks(): ArrayBuffer[] {
-    return this.typedBlocks.map((b) => b.buffer);
+    return this.typedBlocks.map((b) => b.buffer as ArrayBuffer);
   }
 
   presenceBuffer(): ArrayBuffer | null {
@@ -227,7 +227,7 @@ export class Float64ColumnStore implements NumericColumn {
   toDTO(): SerializedColumn {
     return {
       type: this.type,
-      blockBuffers: this.typedBlocks.map((b) => b.buffer),
+      blockBuffers: this.typedBlocks.map((b) => b.buffer as ArrayBuffer),
       presenceBuffer: null,
       dictionary: null,
       rowCount: this._length,
@@ -304,7 +304,7 @@ export class DictColumnStore implements DictColumn {
   }
 
   blocks(): ArrayBuffer[] {
-    return this.codes.map((b) => b.buffer);
+    return this.codes.map((b) => b.buffer as ArrayBuffer);
   }
 
   presenceBuffer(): ArrayBuffer | null {
@@ -314,7 +314,7 @@ export class DictColumnStore implements DictColumn {
   toDTO(): SerializedColumn {
     return {
       type: this.type,
-      blockBuffers: this.codes.map((b) => b.buffer),
+      blockBuffers: this.codes.map((b) => b.buffer as ArrayBuffer),
       presenceBuffer: null,
       dictionary: this.dictionary,
       rowCount: this._length,

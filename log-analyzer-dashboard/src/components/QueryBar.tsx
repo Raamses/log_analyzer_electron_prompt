@@ -11,7 +11,7 @@
  *   - Enter applies
  */
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { parseQuery, type ParsedQuery } from '../lib/query';
 import type { ColumnDef } from '../lib/types';
 
@@ -99,7 +99,6 @@ export const QueryBar = ({ columns, value, onChange, onApply, error }: QueryBarP
       e.preventDefault();
       if (lastValid) {
         onChange(lastValid);
-        setLocalError('');
       } else {
         onChange('');
       }
@@ -158,7 +157,7 @@ export const QueryBar = ({ columns, value, onChange, onApply, error }: QueryBarP
         />
         {value && (
           <button
-            onClick={() => { onChange(''); setLocalError(''); }}
+            onClick={() => { onChange(''); }}
             className="text-slate-500 hover:text-slate-300 text-xs cursor-pointer"
             title="Clear"
           >

@@ -66,7 +66,7 @@ describe('generateInsights', () => {
     ds.columns = [
       { key: 'col1', sourceName: 'col1', label: 'Col1', role: 'unknown', type: 'string', index: 0, nullable: false, confidence: 0.5, derived: false },
     ];
-    ds.rows = ds.rows.map(r => ({ col1: 'value' }));
+    ds.rows = ds.rows.map(() => ({ col1: 'value' }));
     expect(generateInsights(ds)).toEqual([]);
   });
 });

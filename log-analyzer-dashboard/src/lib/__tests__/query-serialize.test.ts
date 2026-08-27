@@ -1,7 +1,7 @@
 // @paths lib/__tests__/query-serialize.test.ts
 import { describe, it, expect } from 'vitest';
 import { serializeQuery } from '../query-serialize';
-import { parseQuery, type ParsedQuery } from '../query';
+import { parseQuery } from '../query';
 
 describe('serializeQuery', () => {
   it('serializes a simple comparison', () => {

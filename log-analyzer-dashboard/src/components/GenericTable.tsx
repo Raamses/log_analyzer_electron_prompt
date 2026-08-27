@@ -111,10 +111,10 @@ const GenericTable = ({
   const handleSort = useCallback((key: string) => {
     const prev = sortRef.current;
     const next: SortState = prev.columnKey === key
-      ? prev.direction === 'asc' ? { key, direction: 'desc' }
-        : prev.direction === 'desc' ? { key, direction: 'none' }
-        : { key, direction: 'asc' }
-      : { key, direction: 'asc' };
+      ? prev.direction === 'asc' ? { columnKey: key, direction: 'desc' }
+        : prev.direction === 'desc' ? { columnKey: key, direction: 'none' }
+        : { columnKey: key, direction: 'asc' }
+      : { columnKey: key, direction: 'asc' };
     sortRef.current = next;
     setSort(next);
     onSort?.(next);
@@ -160,10 +160,6 @@ const GenericTable = ({
 
   const handleShowColumn = useCallback((key: string) => {
     setColStates(prev => ({ ...prev, [key]: { ...prev[key], visible: true } }));
-  }, []);
-
-  const handlePinToggle = useCallback((key: string) => {
-    setColStates(prev => ({ ...prev, [key]: { ...prev[key], pinned: !prev[key]?.pinned } }));
   }, []);
 
   const formatValue = useCallback((value: unknown, col: ColumnDef): string => {
@@ -397,11 +393,11 @@ const GenericTable = ({
           onMouseLeave={() => setContextCell(null)}
         >
           <button className="block w-full text-left px-4 py-2 text-slate-300 hover:bg-slate-800 cursor-pointer"
-            onClick={() => { navigator.clipboard.writeText(contextCell.row[contextCell.col.key] ?? ''); setContextCell(null); }}>
+            onClick={() => { navigator.clipboard.writeText(String(contextCell.row[contextCell.col.key] ?? '')); setContextCell(null); }}>
             Copy IP
           </button>
           <button className="block w-full text-left px-4 py-2 text-slate-300 hover:bg-slate-800 cursor-pointer"
-            onClick={() => { window.open(`https://whois.domaintools.com/${contextCell.row[contextCell.col.key]}`, '_blank'); setContextCell(null); }}>
+            onClick={() => { window.open(`https://whois.domaintools.com/${String(contextCell.row[contextCell.col.key])}`, '_blank'); setContextCell(null); }}>
             Whois Lookup
           </button>
         </div>

@@ -1,6 +1,6 @@
 // @paths lib/__tests__/columnar-filter.test.ts
 import { describe, it, expect } from 'vitest';
-import { Int32ColumnStore, Float64ColumnStore, DictColumnStore, StringColumnStore } from '../columnstore';
+import { Int32ColumnStore, DictColumnStore, StringColumnStore } from '../columnstore';
 import { evaluate, toNNF, maskToIndices, type ColumnarExpr } from '../columnar-filter';
 import type { ColumnStore } from '../columnstore';
 
@@ -14,13 +14,6 @@ function makeStatus(): Int32ColumnStore {
   const c = new Int32ColumnStore();
   // rows: [200, 500, 404, null(unset), 200, 500]
   c.set(0, 200); c.set(1, 500); c.set(2, 404); c.set(4, 200); c.set(5, 500);
-  return c;
-}
-
-function makeUri(): DictColumnStore {
-  const c = new DictColumnStore();
-  c.set(0, '/api/x'); c.set(1, '/api/x'); c.set(2, '/img/a.png');
-  c.set(3, '/api/x'); c.set(4, '/api/y'); c.set(5, '/img/b.png');
   return c;
 }
 

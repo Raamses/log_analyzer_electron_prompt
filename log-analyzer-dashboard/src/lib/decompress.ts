@@ -51,7 +51,7 @@ export async function decompressGzip(data: Uint8Array): Promise<Uint8Array> {
     throw err;
   }
 
-  const blob = new Blob([data]);
+  const blob = new Blob([data as BlobPart]);
   const stream = blob.stream().pipeThrough(new DecompressionStream('gzip'));
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];

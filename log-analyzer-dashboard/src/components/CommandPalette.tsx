@@ -8,7 +8,7 @@
  *   - Saved views: recall filter/sort/column state
  */
 
-import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 
 export interface Command {
   id: string;

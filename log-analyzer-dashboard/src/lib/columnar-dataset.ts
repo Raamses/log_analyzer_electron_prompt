@@ -16,6 +16,7 @@ import { createColumnStore, columnStoreFromDTO, type ColumnStore, type Serialize
 
 export interface ColumnarDataset extends Dataset {
   readonly stores: Map<string, ColumnStore>;
+  readonly rowCount: number;
   getCellAt(row: number, colIdx: number): unknown;
   getColumn(colIdx: number): ColumnStore;
   getRow(row: number): Row;
@@ -49,12 +50,10 @@ export function buildColumnarDataset(
   meta: DatasetMeta,
 ): ColumnarDataset {
   const stores = new Map<string, ColumnStore>();
-  const colByKey = new Map<string, ColumnDef>();
   for (const col of columns) {
     const type = columnTypeForType(col);
     const store = createColumnStore(type);
     stores.set(col.key, store);
-    colByKey.set(col.key, col);
   }
 
   const rowCount = rowsByCol[columns[0]?.key]?.length ?? 0;
@@ -70,7 +69,7 @@ export function buildColumnarDataset(
   const index = new Uint32Array(rowCount);
   for (let i = 0; i < rowCount; i++) index[i] = i;
 
-  return makeColumnarDataset(columns, stores, colByKey, schema, meta, index);
+  return makeColumnarDataset(columns, stores, schema, meta, index);
 }
 
 /** Choose a ColumnStore type from a ColumnDef type + role. */
@@ -97,7 +96,6 @@ export function columnTypeForType(col: ColumnDef): 'dict' | 'float64' | 'int32' 
 export function makeColumnarDataset(
   columns: ColumnDef[],
   stores: Map<string, ColumnStore>,
-  colByKey: Map<string, ColumnDef>,
   schema: Schema,
   meta: DatasetMeta,
   index: Uint32Array,
@@ -157,18 +155,16 @@ function rowsFromColumns(
 
 /** Rehydrate a ColumnarDataset from a transfer DTO (main-thread factory). */
 export function rehydrateColumnarDataset(dto: IngestColumnar): ColumnarDataset {
-  const colByKey = new Map<string, ColumnDef>();
   const stores = new Map<string, ColumnStore>();
   for (let i = 0; i < dto.columns.length; i++) {
     const col = dto.columns[i];
-    colByKey.set(col.key, col);
     const sc = dto.stores[i];
     if (sc) {
       const store = columnStoreFromDTO(sc);
       stores.set(col.key, store);
     }
   }
-  return makeColumnarDataset(dto.columns, stores, colByKey, dto.schema, dto.meta, dto.index);
+  return makeColumnarDataset(dto.columns, stores, dto.schema, dto.meta, dto.index);
 }
 
 export interface SerializeColumnarResult {

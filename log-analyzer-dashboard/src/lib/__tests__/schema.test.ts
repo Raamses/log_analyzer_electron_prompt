@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   SCHEMA_REGISTRY, detectSchema, applySchema, inferSchema,
 } from '../schema';
-import type { Role } from '../types';
 
 const cols = (s: string) => s.split('\t').map(c => c.replace(/"/g, '').trim());
 

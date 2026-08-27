@@ -81,12 +81,6 @@ export const SavedViews = ({
     setSaveName('');
   }, [saveName, views, currentQuery, currentSort, hiddenColumns, pinnedColumns]);
 
-  const handleDelete = useCallback((id: string) => {
-    const updated = views.filter(v => v.id !== id);
-    setViews(updated);
-    saveViews(updated);
-  }, [views]);
-
   return (
     <div className="flex items-center gap-2">
       {/* Saved view buttons */}

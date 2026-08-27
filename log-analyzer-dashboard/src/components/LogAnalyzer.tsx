@@ -14,10 +14,10 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import type { Dataset, SortState } from '../lib/types';
+import type { Dataset } from '../lib/types';
 import { parseQuery, filterRows, type ParsedQuery, type QueryExpr } from '../lib/query';
 import { serializeQuery } from '../lib/query-serialize';
-import { GenericTable, type ColumnState } from './GenericTable';
+import GenericTable, { type ColumnState, type SortState } from './GenericTable';
 import { QueryBar } from './QueryBar';
 import { FilterChips } from './FilterChips';
 import { InsightsRail } from './InsightsRail';
@@ -114,8 +114,10 @@ export const LogAnalyzer = ({ dataset }: LogAnalyzerProps) => {
     // Remove the leaf by filtering it out and rebuilding the AND chain
     const remaining = leaves.filter((_, i) => i !== index);
     if (remaining.length === 0) { setQuery(''); return; }
-    const rebuilt: QueryExpr = remaining.reduce<QueryExpr>((acc, cur) =>
-      acc.type === 'and' ? { ...acc, right: cur } : { type: 'and', left: acc, right: cur }
+    const [first, ...rest] = remaining;
+    const rebuilt: QueryExpr = rest.reduce<QueryExpr>(
+      (acc, cur) => ({ type: 'and', left: acc, right: cur }),
+      first,
     );
     setQuery(serializeQuery({ ...parsedQuery, where: rebuilt }));
   }, [parsedQuery]);

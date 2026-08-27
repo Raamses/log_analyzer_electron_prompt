@@ -5,12 +5,7 @@ import {
   Bzip2UnsupportedError,
   setGzipImpl,
   isDecompressError,
-  type DecompressError,
 } from '../decompress';
-
-// Minimal "fake" gzip for tests: a function that reverses the bytes (just
-// to prove the plumbbing works without a real gzip implementation).
-const FAKE_GZIP_HEADER = new Uint8Array([0x1f, 0x8b, 0x08]);
 
 beforeEach(() => {
   // Reset gzip impl between tests
