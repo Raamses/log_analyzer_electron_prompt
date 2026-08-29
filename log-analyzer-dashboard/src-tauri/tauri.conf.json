@@ -1,0 +1,27 @@
+{
+  "productName": "log-analyzer",
+  "version": "0.1.0",
+  "identifier": "com.raamses.log-analyzer",
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Log Analyzer",
+        "width": 1200,
+        "height": 800
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all"
+  }
+}
