@@ -19,9 +19,9 @@ export interface IngestResult {
   type: 'done';
   columns: ColumnDef[];
   schema: Schema;
-  rows: string[][];
+  columnData: { [key: string]: (string | number | null)[] };
+  rowCount: number;
   meta: DatasetMeta;
-  dictionaries: Record<string, string[]>;
 }
 
 export interface IngestProgress {
@@ -60,10 +60,11 @@ self.onmessage = async (e: MessageEvent<{ file: File; options?: IngestOptions }>
   let skipped = 0;
   let columns: ColumnDef[] = [];
   let schema: Schema | null = null;
-  const rows: string[][] = [];
+  const columnData: { [key: string]: (string | number | null)[] } = {};
+  let rowCount = 0;
   let leftover = '';
   let formatDetected = false;
-  let detectedDelimiter = ','; // preserve across chunks (fixes multi-chunk bug)
+  let detectedDelimiter = ',';
 
   const CHUNK = 8 * 1024 * 1024;
 
@@ -122,6 +123,11 @@ self.onmessage = async (e: MessageEvent<{ file: File; options?: IngestOptions }>
         schema = result.schema;
         formatDetected = true;
 
+        // Initialize column data arrays
+        for (const col of columns) {
+          columnData[col.key] = [];
+        }
+
         // Process data rows from this chunk (skip header)
         const dataLines = (framed.format === 'tsv' || framed.format === 'csv')
           ? lines.slice(1)
@@ -131,11 +137,14 @@ self.onmessage = async (e: MessageEvent<{ file: File; options?: IngestOptions }>
           try {
             const rawCells = parseDelimitedLine(line, detectedDelimiter);
             const normRow = normalizeRow(rawCells, columns, schema);
-            rows.push(normRow);
+            for (const col of columns) {
+              columnData[col.key].push(normRow[col.index] ?? null);
+            }
+            rowCount++;
           } catch {
             skipped++;
           }
-          if (rows.length >= maxRows || (sampleRows && rows.length >= sampleRows)) break;
+          if (rowCount >= maxRows || (sampleRows && rowCount >= sampleRows)) break;
         }
         continue;
       }
@@ -151,22 +160,25 @@ self.onmessage = async (e: MessageEvent<{ file: File; options?: IngestOptions }>
             if (rawCells.length > columns.length) rawCells.length = columns.length;
           }
           const normRow = normalizeRow(rawCells, columns, schema!);
-          rows.push(normRow);
+          for (const col of columns) {
+            columnData[col.key].push(normRow[col.index] ?? null);
+          }
+          rowCount++;
         } catch {
           skipped++;
         }
 
-        if (rows.length >= maxRows) {
+        if (rowCount >= maxRows) {
           warnings.push(`row cap reached at ${maxRows}`);
           break;
         }
-        if (sampleRows && rows.length >= sampleRows) break;
+        if (sampleRows && rowCount >= sampleRows) break;
       }
 
       const progress = Math.round((bytesRead / file.size) * 100);
       self.postMessage({ type: 'progress', stage: 'parsing', progress } satisfies IngestProgress);
 
-      if (rows.length >= maxRows) break;
+      if (rowCount >= maxRows) break;
     }
 
     if (!schema) {
@@ -181,7 +193,8 @@ self.onmessage = async (e: MessageEvent<{ file: File; options?: IngestOptions }>
       type: 'done',
       columns,
       schema,
-      rows,
+      columnData,
+      rowCount,
       meta: {
         file: file.name,
         bytes: file.size,
@@ -193,7 +206,6 @@ self.onmessage = async (e: MessageEvent<{ file: File; options?: IngestOptions }>
         datasetId: crypto.randomUUID(),
         alignmentKeys: [],
       },
-      dictionaries: {},
     } satisfies IngestResult);
 
   } catch (err: unknown) {

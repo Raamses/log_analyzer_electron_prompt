@@ -1,4 +1,7 @@
 // @paths lib/types
+
+import type { ColumnStore } from './columnstore';
+
 /**
  * Core type model for the generic log analyzer.
  *
@@ -82,16 +85,25 @@ export interface DatasetMeta {
 }
 
 /**
- * The core data container. Row-objects + a sort/filter index array.
- * The narrow interface lets storage go columnar later without touching
- * the table, filters, or analytics — if profiling ever proves the need.
+ * The core data container. Columnar storage + a sort/filter index array.
  */
 export interface Dataset {
   columns: ColumnDef[];
-  rows: Row[];
+  stores: Map<string, ColumnStore>;
   index: Uint32Array;          // sort/filter view over rows
   schema: Schema;
   meta: DatasetMeta;
+  rowCount: number;
+}
+
+/** Materialize a single row from column stores. */
+export function getRowAt(dataset: Dataset, rowIdx: number): Row {
+  const row: Row = {};
+  for (const col of dataset.columns) {
+    const store = dataset.stores.get(col.key);
+    if (store) row[col.key] = store.get(rowIdx);
+  }
+  return row;
 }
 
 /** One row: keyed by ColumnDef.key. Values are raw — formatting is UI work. */

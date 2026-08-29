@@ -1,20 +1,40 @@
 import { describe, it, expect } from 'vitest';
 import { parseQuery, filterRows } from '../query';
+import type { ColumnDef, Dataset } from '../types';
 
-const cols = [
-  { key: 'status', sourceName: 'HttpStatus', role: 'status', type: 'int' },
-  { key: 'uri', sourceName: 'RequestUri', role: 'uri', type: 'url' },
-  { key: 'method', sourceName: 'Method', role: 'method', type: 'string' },
-  { key: 'ip', sourceName: 'ClientIp', role: 'client_ip', type: 'ip' },
-  { key: 'latency', sourceName: 'TimeTaken', role: 'latency_ms', type: 'int' },
+const cols: ColumnDef[] = [
+  { key: 'status', sourceName: 'HttpStatus', label: 'Status', role: 'status', type: 'int', index: 0, nullable: false, confidence: 1, derived: false },
+  { key: 'uri', sourceName: 'RequestUri', label: 'URI', role: 'uri', type: 'url', index: 1, nullable: false, confidence: 1, derived: false },
+  { key: 'method', sourceName: 'Method', label: 'Method', role: 'method', type: 'string', index: 2, nullable: false, confidence: 1, derived: false },
+  { key: 'ip', sourceName: 'ClientIp', label: 'IP', role: 'client_ip', type: 'ip', index: 3, nullable: false, confidence: 1, derived: false },
+  { key: 'latency', sourceName: 'TimeTaken', label: 'Latency', role: 'latency_ms', type: 'int', index: 4, nullable: false, confidence: 1, derived: false },
 ];
 
-const rows = [
+// Helper to build a Dataset from row objects
+const makeDataset = (rowObjs: Record<string, unknown>[]): Dataset => {
+  const stores = new Map();
+  for (const col of cols) {
+    const values = rowObjs.map(r => r[col.key] ?? null);
+    stores.set(col.key, {
+      get: (i: number) => values[i],
+    });
+  }
+  return {
+    columns: cols,
+    stores: stores as any,
+    rowCount: rowObjs.length,
+    index: new Uint32Array(rowObjs.map((_, i) => i)),
+    schema: { format: 'test', label: 'Test', bindings: [], primary: {}, timezone: 'utc' },
+    meta: { file: 'test.log', bytes: 100, parsedAt: new Date(), lineCount: rowObjs.length, skipped: 0, warnings: [], sampled: false, datasetId: 'test-1', alignmentKeys: [] },
+  };
+};
+
+const rows = makeDataset([
   { status: '200', uri: '/api/search', method: 'GET', ip: '10.0.0.1', latency: '50' },
   { status: '404', uri: '/api/missing', method: 'GET', ip: '10.0.0.2', latency: '10' },
   { status: '500', uri: '/api/error', method: 'POST', ip: '10.0.0.3', latency: '5000' },
   { status: '200', uri: '/home', method: 'GET', ip: '10.0.0.4', latency: '100' },
-];
+]);
 
 describe('parseQuery', () => {
   it('returns null for empty input', () => {
@@ -75,51 +95,51 @@ describe('parseQuery', () => {
 
 describe('filterRows', () => {
   it('returns all rows for null expr', () => {
-    expect(filterRows(rows, cols, null)).toEqual([0, 1, 2, 3]);
+    expect(filterRows(rows, null)).toEqual([0, 1, 2, 3]);
   });
 
   it('filters by status >= 500', () => {
     const q = parseQuery('status >= 500');
-    expect(filterRows(rows, cols, q.where)).toEqual([2]);
+    expect(filterRows(rows, q.where)).toEqual([2]);
   });
 
   it('filters by method = GET', () => {
     const q = parseQuery('method = GET');
-    expect(filterRows(rows, cols, q.where)).toEqual([0, 1, 3]);
+    expect(filterRows(rows, q.where)).toEqual([0, 1, 3]);
   });
 
   it('filters by uri contains', () => {
     const q = parseQuery('uri contains "/api/"');
-    expect(filterRows(rows, cols, q.where)).toEqual([0, 1, 2]);
+    expect(filterRows(rows, q.where)).toEqual([0, 1, 2]);
   });
 
   it('filters by AND', () => {
     const q = parseQuery('status >= 400 AND method = GET');
-    expect(filterRows(rows, cols, q.where)).toEqual([1]);
+    expect(filterRows(rows, q.where)).toEqual([1]);
   });
 
   it('filters by OR', () => {
     const q = parseQuery('status = 404 OR status = 500');
-    expect(filterRows(rows, cols, q.where)).toEqual([1, 2]);
+    expect(filterRows(rows, q.where)).toEqual([1, 2]);
   });
 
   it('filters by NOT', () => {
     const q = parseQuery('NOT status = 200');
-    expect(filterRows(rows, cols, q.where)).toEqual([1, 2]);
+    expect(filterRows(rows, q.where)).toEqual([1, 2]);
   });
 
   it('filters by IN', () => {
     const q = parseQuery('status in (404, 500)');
-    expect(filterRows(rows, cols, q.where)).toEqual([1, 2]);
+    expect(filterRows(rows, q.where)).toEqual([1, 2]);
   });
 
   it('filters by bare term (free text)', () => {
     const q = parseQuery('api');
-    expect(filterRows(rows, cols, q.where)).toEqual([0, 1, 2]);
+    expect(filterRows(rows, q.where)).toEqual([0, 1, 2]);
   });
 
   it('is case-insensitive', () => {
     const q = parseQuery('METHOD = get');
-    expect(filterRows(rows, cols, q.where)).toEqual([0, 1, 3]);
+    expect(filterRows(rows, q.where)).toEqual([0, 1, 3]);
   });
 });

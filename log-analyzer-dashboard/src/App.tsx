@@ -90,7 +90,7 @@ function App() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="text-sm text-slate-400">
-                {dataset.meta.file} · {dataset.rows.length.toLocaleString()} rows · {dataset.columns.length} columns
+                {dataset.meta.file} · {dataset.rowCount.toLocaleString()} rows · {dataset.columns.length} columns
               </div>
               <button
                 onClick={() => setDataset(null)}

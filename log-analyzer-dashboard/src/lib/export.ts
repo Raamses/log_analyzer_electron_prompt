@@ -6,7 +6,7 @@
  * redaction-on-export (mask IP octets, strip declared-sensitive query params).
  */
 
-import type { Dataset, ColumnDef, Row } from './types';
+import type { Dataset, ColumnDef } from './types';
 
 export type ExportFormat = 'csv' | 'tsv' | 'json' | 'ndjson';
 
@@ -88,10 +88,11 @@ export function exportDataset(dataset: Dataset, options: ExportOptions): string 
     ? dataset.columns.filter(c => options.columns!.includes(c.key))
     : dataset.columns;
 
-  const rowIndices = options.rows ?? dataset.rows.map((_: Row, i: number) => i);
+  const rowIndices = options.rows ?? Array.from({ length: dataset.rowCount }, (_, i) => i);
 
   const getVal = (rowIdx: number, col: ColumnDef): string => {
-    const raw = String(dataset.rows[rowIdx][col.key] ?? '');
+    const store = dataset.stores.get(col.key);
+    const raw = String(store ? store.get(rowIdx) : '');
     return redact ? redactValue(raw, col, sensitive) : raw;
   };
 

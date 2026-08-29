@@ -2,21 +2,27 @@ import { describe, it, expect } from 'vitest';
 import { exportDataset } from '../export';
 import type { Dataset } from '../types';
 
-const makeDataset = (): Dataset => ({
-  columns: [
-    { key: 'ts', sourceName: 'timestamp', label: 'Time', role: 'timestamp', type: 'date', index: 0, nullable: false, confidence: 1, derived: false },
-    { key: 'status', sourceName: 'status', label: 'Status', role: 'status', type: 'int', index: 1, nullable: false, confidence: 1, derived: false },
-    { key: 'ip', sourceName: 'client_ip', label: 'IP', role: 'client_ip', type: 'ip', index: 2, nullable: false, confidence: 1, derived: false },
-    { key: 'uri', sourceName: 'uri', label: 'URI', role: 'uri', type: 'url', index: 3, nullable: false, confidence: 1, derived: false },
-  ],
-  rows: [
-    { ts: '1761488630000', status: '200', ip: '10.0.0.1', uri: '/api/search?token=abc' },
-    { ts: '1761488631000', status: '404', ip: '10.0.0.2', uri: '/api/missing' },
-  ],
-  index: new Uint32Array([0, 1]),
-  schema: { format: 'test', label: 'Test', bindings: [], primary: {}, timezone: 'utc' },
-  meta: { file: 'test.log', bytes: 100, parsedAt: new Date(), lineCount: 2, skipped: 0, warnings: [], sampled: false, datasetId: 'test-1', alignmentKeys: [] },
-});
+const makeDataset = (): Dataset => {
+  const stores = new Map();
+  stores.set('ts', { get: (i: number) => ['1761488630000', '1761488631000'][i] });
+  stores.set('status', { get: (i: number) => ['200', '404'][i] });
+  stores.set('ip', { get: (i: number) => ['10.0.0.1', '10.0.0.2'][i] });
+  stores.set('uri', { get: (i: number) => ['/api/search?token=abc', '/api/missing'][i] });
+
+  return {
+    columns: [
+      { key: 'ts', sourceName: 'timestamp', label: 'Time', role: 'timestamp', type: 'date', index: 0, nullable: false, confidence: 1, derived: false },
+      { key: 'status', sourceName: 'status', label: 'Status', role: 'status', type: 'int', index: 1, nullable: false, confidence: 1, derived: false },
+      { key: 'ip', sourceName: 'client_ip', label: 'IP', role: 'client_ip', type: 'ip', index: 2, nullable: false, confidence: 1, derived: false },
+      { key: 'uri', sourceName: 'uri', label: 'URI', role: 'uri', type: 'url', index: 3, nullable: false, confidence: 1, derived: false },
+    ],
+    stores: stores as any,
+    rowCount: 2,
+    index: new Uint32Array([0, 1]),
+    schema: { format: 'test', label: 'Test', bindings: [], primary: {}, timezone: 'utc' },
+    meta: { file: 'test.log', bytes: 100, parsedAt: new Date(), lineCount: 2, skipped: 0, warnings: [], sampled: false, datasetId: 'test-1', alignmentKeys: [] },
+  };
+};
 
 describe('exportDataset', () => {
   it('exports CSV', () => {
@@ -70,7 +76,9 @@ describe('exportDataset', () => {
 
   it('escapes CSV fields with commas', () => {
     const ds = makeDataset();
-    ds.rows[0].uri = '/api/search,test';
+    // Mutate via the store
+    const uriStore = ds.stores.get('uri');
+    if (uriStore) uriStore.get = (i: number) => ['/api/search,test', '/api/missing'][i];
     const csv = exportDataset(ds, { format: 'csv' });
     expect(csv).toContain('"/api/search,test"');
   });

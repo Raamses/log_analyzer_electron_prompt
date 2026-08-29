@@ -42,17 +42,16 @@ describe('buildColumnarDataset', () => {
     expect(ds.getCellAt(1, 1)).toBe('/api/y'); // uri
   });
 
-  it('getRow materialises an object (compat)', () => {
+  it('rowCount reflects the dataset size', () => {
+    const ds = build();
+    expect(ds.rowCount).toBe(3);
+  });
+
+  it('getRow materialises an object', () => {
     const ds = build();
     const row = ds.getRow(0);
     expect(row['status']).toBe(200);
     expect(row['latency']).toBe(10);
-  });
-
-  it('rows property still works (compat)', () => {
-    const ds = build();
-    expect(ds.rows.length).toBe(3);
-    expect(ds.rows[0]['uri']).toBe('/api/x');
   });
 
   it('stores null as missing', () => {
@@ -62,15 +61,18 @@ describe('buildColumnarDataset', () => {
 });
 
 describe('serialize + rehydrate round-trip', () => {
-  it('serializes to DTO then rehydrates', () => {
-    const ds = build();
-    const { stores, index } = serializeColumnarDataset(ds);
+  it('rehydrates from columnar DTO', () => {
     const restored = rehydrateColumnarDataset({
       columns: cols,
       schema,
       meta,
-      stores,
-      index,
+      columnData: {
+        status: [200, 500, null],
+        uri: ['/api/x', '/api/y', '/img/a.png'],
+        latency: [10, 500, null],
+      },
+      rowCount: 3,
+      index: new Uint32Array([0, 1, 2]),
     });
     expect(restored.rowCount).toBe(3);
     expect(restored.getCellAt(0, 1)).toBe('/api/x');

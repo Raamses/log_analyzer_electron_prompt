@@ -8,6 +8,7 @@
 
 import type { Dataset } from './types';
 import type { IngestMessage, IngestOptions } from '../workers/ingest.worker';
+import { rehydrateColumnarDataset } from './columnar-dataset';
 
 export interface IngestCallbacks {
   onProgress?: (progress: number) => void;
@@ -29,17 +30,14 @@ export function ingestLogs(file: File, options: IngestOptions = {}, callbacks: I
       if (msg.type === 'progress') {
         callbacks.onProgress?.(msg.progress);
       } else if (msg.type === 'done') {
-        const dataset: Dataset = {
+        const dataset = rehydrateColumnarDataset({
           columns: msg.columns,
-          rows: msg.rows.map((row) => {
-            const obj: Record<string, unknown> = {};
-            msg.columns.forEach((col, i) => { obj[col.key] = row[i]; });
-            return obj;
-          }),
-          index: new Uint32Array(msg.rows.length).map((_, i) => i),
           schema: msg.schema,
           meta: msg.meta,
-        };
+          columnData: msg.columnData,
+          rowCount: msg.rowCount,
+          index: new Uint32Array(msg.rowCount).map((_: number, i: number) => i),
+        });
         worker.terminate();
         resolve(dataset);
       } else if (msg.type === 'error') {

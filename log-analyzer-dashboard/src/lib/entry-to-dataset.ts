@@ -1,12 +1,11 @@
 // @paths lib/entry-to-dataset
 /**
  * Adapter: convert the legacy LogEntry[] (from useLogAnalysis) into a
- * Dataset so the new LogAnalyzer can render it. This is the bridge that
- * makes Phase 5's query-first UI visible without waiting for the new
- * ingest pipeline to land in the live app.
+ * Dataset so the new LogAnalyzer can render it.
  */
 
-import type { Dataset, ColumnDef, Schema, Row } from './types';
+import type { Dataset, ColumnDef, Schema } from './types';
+import { buildColumnarDataset, type CellValue } from './columnar-dataset';
 
 const COLUMNS: ColumnDef[] = [
   { key: 'timestamp', sourceName: 'timestamp', label: 'Timestamp', role: 'timestamp', type: 'date', index: 0, nullable: false, confidence: 1, derived: false },
@@ -39,32 +38,29 @@ export interface LogEntryLike {
 }
 
 export function entriesToDataset(entries: LogEntryLike[], fileName = 'pasted.log'): Dataset {
-  const rows: Row[] = entries.map(e => ({
-    timestamp: e.timestamp.getTime(),
-    method: e.method ?? null,
-    uri: e.uriStem,
-    status: e.statusCode,
-    latency_ms: e.timeTaken,
-    client_ip: e.clientIp,
-    user_agent: e.userAgent ?? null,
-    request_id: e.requestId ?? null,
-  }));
+  const rowsByCol: { [k: string]: CellValue[] } = {};
+  for (const col of COLUMNS) rowsByCol[col.key] = [];
 
-  return {
-    columns: COLUMNS,
-    rows,
-    index: new Uint32Array(rows.length).map((_, i) => i),
-    schema: SCHEMA,
-    meta: {
-      file: fileName,
-      bytes: 0,
-      parsedAt: new Date(),
-      lineCount: entries.length,
-      skipped: 0,
-      warnings: [],
-      sampled: false,
-      datasetId: 'legacy-entry-dataset',
-      alignmentKeys: [],
-    },
-  };
+  for (const e of entries) {
+    rowsByCol['timestamp'].push(e.timestamp.getTime());
+    rowsByCol['method'].push(e.method ?? null);
+    rowsByCol['uri'].push(e.uriStem);
+    rowsByCol['status'].push(e.statusCode);
+    rowsByCol['latency_ms'].push(e.timeTaken);
+    rowsByCol['client_ip'].push(e.clientIp);
+    rowsByCol['user_agent'].push(e.userAgent ?? null);
+    rowsByCol['request_id'].push(e.requestId ?? null);
+  }
+
+  return buildColumnarDataset(COLUMNS, rowsByCol, SCHEMA, {
+    file: fileName,
+    bytes: 0,
+    parsedAt: new Date(),
+    lineCount: entries.length,
+    skipped: 0,
+    warnings: [],
+    sampled: false,
+    datasetId: 'legacy-entry-dataset',
+    alignmentKeys: [],
+  });
 }

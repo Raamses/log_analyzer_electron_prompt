@@ -42,7 +42,7 @@ export const LogAnalyzer = ({ dataset }: LogAnalyzerProps) => {
   // Parse query and filter rows
   const parsedQuery = useMemo(() => parseQuery(query), [query]);
   const filteredIndices = useMemo(
-    () => filterRows(dataset.rows, dataset.columns, parsedQuery.where),
+    () => filterRows(dataset, parsedQuery.where),
     [dataset, parsedQuery.where],
   );
 

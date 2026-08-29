@@ -1,4 +1,6 @@
 // @paths lib/query
+
+import type { Dataset } from './types';
 /**
  * KQL subset parser — converts query text into a filter AST.
  *
@@ -394,18 +396,18 @@ export function compileQuery(
  * Filter rows using a parsed query. Returns matching row indices.
  */
 export function filterRows(
-  rows: Record<string, unknown>[],
-  columns: { key: string; sourceName: string; role: string; type: string }[],
+  dataset: Dataset,
   expr: QueryExpr | null,
 ): number[] {
-  if (!expr) return rows.map((_, i) => i);
+  if (!expr) return Array.from(dataset.index).map((_, i) => i);
+  const columns = dataset.columns;
+  const stores = dataset.stores;
 
   // Build field name -> key map (case-insensitive)
   const fieldMap = new Map<string, string>();
   for (const col of columns) {
     fieldMap.set(col.key.toLowerCase(), col.key);
     fieldMap.set(col.sourceName.toLowerCase(), col.key);
-    // Also map common aliases
     if (col.role === 'status') {
       fieldMap.set('status', col.key);
       fieldMap.set('statuscode', col.key);
@@ -432,15 +434,17 @@ export function filterRows(
 
   const resolve = (name: string): string | null => fieldMap.get(name.toLowerCase()) ?? null;
 
-  const evalExpr = (e: QueryExpr, row: Record<string, unknown>): boolean => {
+  const evalExpr = (e: QueryExpr, rowIdx: number): boolean => {
     switch (e.type) {
-      case 'and': return evalExpr(e.left, row) && evalExpr(e.right, row);
-      case 'or': return evalExpr(e.left, row) || evalExpr(e.right, row);
-      case 'not': return !evalExpr(e.expr, row);
+      case 'and': return evalExpr(e.left, rowIdx) && evalExpr(e.right, rowIdx);
+      case 'or': return evalExpr(e.left, rowIdx) || evalExpr(e.right, rowIdx);
+      case 'not': return !evalExpr(e.expr, rowIdx);
       case 'bareTerm': {
         const term = String(e.value).toLowerCase();
         for (const col of columns) {
-          const v = row[col.key];
+          const store = stores.get(col.key);
+          if (!store) continue;
+          const v = store.get(rowIdx);
           if (v != null && String(v).toLowerCase().includes(term)) return true;
         }
         return false;
@@ -448,17 +452,16 @@ export function filterRows(
       case 'comparison': {
         const key = resolve(e.field);
         if (!key) return true;
-        const cell = row[key];
+        const store = stores.get(key);
+        const cell = store ? store.get(rowIdx) : undefined;
         if (cell == null || cell === '') return false;
         return evalComparison(cell, e.op, e.value);
       }
     }
   };
 
-  return rows
-    .map((row, i) => ({ row, i }))
-    .filter(({ row }) => evalExpr(expr, row))
-    .map(({ i }) => i);
+  const idxArray = Array.from(dataset.index);
+  return idxArray.filter((rowIdx) => evalExpr(expr, rowIdx));
 }
 
 function evalComparison(cell: unknown, op: ComparisonOp, value: string | number | (string | number)[]): boolean {

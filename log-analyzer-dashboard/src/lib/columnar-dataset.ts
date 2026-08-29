@@ -12,7 +12,7 @@
  */
 
 import type { ColumnDef, Dataset, DatasetMeta, Row, Schema } from './types';
-import { createColumnStore, columnStoreFromDTO, type ColumnStore, type SerializedColumn } from './columnstore';
+import { createColumnStore, type ColumnStore, type SerializedColumn } from './columnstore';
 
 export interface ColumnarDataset extends Dataset {
   readonly stores: Map<string, ColumnStore>;
@@ -35,8 +35,23 @@ export interface IngestColumnar {
   columns: ColumnDef[];
   schema: Schema;
   meta: DatasetMeta;
-  stores: SerializedColumn[];
+  columnData: { [key: string]: (string | number | null)[] };
+  rowCount: number;
   index: Uint32Array;
+}
+
+/** Build a ColumnStore from raw array values, choosing the right type. */
+function columnStoreFromArray(
+  values: (string | number | null)[],
+  col: ColumnDef,
+): ColumnStore {
+  const type = columnTypeForType(col);
+  const store = createColumnStore(type);
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    if (v !== null && v !== undefined) store.set(i, v);
+  }
+  return store;
 }
 
 /**
@@ -109,7 +124,6 @@ export function makeColumnarDataset(
     get rowCount(): number {
       return index.length;
     },
-    rows: rowsFromColumns(columns, stores, index),
     getCellAt(rowIdx: number, colIdx: number): unknown {
       const col = columns[colIdx];
       if (!col) return null;
@@ -134,34 +148,13 @@ export function makeColumnarDataset(
   };
 }
 
-/** Lazily materialise a Row[] from columns + stores. Used for `rows` compat. */
-function rowsFromColumns(
-  columns: ColumnDef[],
-  stores: Map<string, ColumnStore>,
-  index: Uint32Array,
-): Row[] {
-  const rowCount = index.length;
-  const out: Row[] = new Array(rowCount);
-  for (let i = 0; i < rowCount; i++) {
-    const row: Row = {};
-    for (const col of columns) {
-      const store = stores.get(col.key);
-      if (store) row[col.key] = store.get(i);
-    }
-    out[i] = row;
-  }
-  return out;
-}
-
 /** Rehydrate a ColumnarDataset from a transfer DTO (main-thread factory). */
 export function rehydrateColumnarDataset(dto: IngestColumnar): ColumnarDataset {
   const stores = new Map<string, ColumnStore>();
-  for (let i = 0; i < dto.columns.length; i++) {
-    const col = dto.columns[i];
-    const sc = dto.stores[i];
-    if (sc) {
-      const store = columnStoreFromDTO(sc);
-      stores.set(col.key, store);
+  for (const col of dto.columns) {
+    const values = dto.columnData[col.key];
+    if (values) {
+      stores.set(col.key, columnStoreFromArray(values, col));
     }
   }
   return makeColumnarDataset(dto.columns, stores, dto.schema, dto.meta, dto.index);
