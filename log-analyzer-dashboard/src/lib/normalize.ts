@@ -109,10 +109,23 @@ export function normalizeRow(
   schema: Schema,
 ): string[] {
   const normRow: string[] = new Array(columns.length).fill('');
+  const timestampCols = columns.filter((c) => c.role === 'timestamp');
+  const primaryTimestampKey = schema.primary.timestamp ?? timestampCols[0]?.key;
+
   for (const col of columns) {
     const raw = rawCells[col.index] ?? '';
     const bind = schema.bindings.find((b: RoleBinding) => b.columnKey === col.key);
-    normRow[col.index] = normalizeCell(raw, col.role, bind?.unit, schema.timezone);
+    let value = normalizeCell(raw, col.role, bind?.unit, schema.timezone);
+
+    // Some formats (e.g. IIS W3C) split the timestamp across multiple columns
+    // (date + time). Neither parses alone; on the primary column, retry by
+    // joining every timestamp-role cell in column order (e.g. "date time").
+    if (col.key === primaryTimestampKey && value === '' && timestampCols.length > 1) {
+      const combined = timestampCols.map((c) => rawCells[c.index] ?? '').join(' ').trim();
+      value = normalizeCell(combined, 'timestamp', bind?.unit, schema.timezone);
+    }
+
+    normRow[col.index] = value;
   }
   return normRow;
 }

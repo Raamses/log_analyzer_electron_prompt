@@ -12,6 +12,7 @@ import {
 } from '../lib/schema';
 import {
   frame, parseDelimitedLine, detectEncoding, decodeBytes,
+  normalizeLineEndings, delimiterForFormat,
 } from '../lib/dialect';
 import { normalizeRow } from '../lib/normalize';
 
@@ -99,7 +100,7 @@ self.onmessage = async (e: MessageEvent<{ file: File; options?: IngestOptions }>
       processable = raw.substring(0, nlIndex);
       leftover = raw.substring(nlIndex + 1);
 
-      const lines = processable.replace(/\r\n?/g, '').split('\n');
+      const lines = normalizeLineEndings(processable).split('\n');
 
       // First chunk: detect format and schema
       if (!formatDetected) {
@@ -111,7 +112,7 @@ self.onmessage = async (e: MessageEvent<{ file: File; options?: IngestOptions }>
           continue;
         }
 
-        detectedDelimiter = framed.format === 'tsv' ? '\t' : ',';
+        detectedDelimiter = delimiterForFormat(framed.format);
 
         let entry = forceSchemaId
           ? SCHEMA_REGISTRY.find(s => s.id === forceSchemaId)

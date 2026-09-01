@@ -360,6 +360,27 @@ function formatCell(v: unknown): string {
   return String(v);
 }
 
+/* ───────────────────────── shared line/delimiter helpers ───────────────────────── */
+
+/**
+ * Normalize all line endings (CRLF, lone CR) to LF.
+ *
+ * Single source of truth for this — the ingest worker used to reimplement
+ * this inline with `.replace(/\r\n?/g, '')`, which DELETES line breaks
+ * instead of normalizing them, collapsing every CRLF-terminated file (i.e.
+ * virtually anything produced on Windows, IIS logs included) into one line.
+ */
+export function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
+/** Pick the field delimiter for a detected format. */
+export function delimiterForFormat(format: FormatType): string {
+  if (format === 'tsv') return '\t';
+  if (format === 'w3c') return ' ';
+  return ',';
+}
+
 /* ───────────────────────── main entry point ───────────────────────── */
 
 /**
@@ -394,7 +415,7 @@ export function frame(input: string | Uint8Array): FramingResult {
     text = input;
   }
 
-  const rawLines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const rawLines = normalizeLineEndings(text).split('\n');
   const sniffed = sniffFormat(rawLines);
 
   let columns: string[] = [];
