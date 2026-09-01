@@ -226,7 +226,7 @@ const GenericTable = ({
       <div className="flex flex-1 overflow-hidden">
         {/* Pinned columns */}
         {pinnedColumns.length > 0 && (
-          <div className="flex-shrink-0 border-r border-slate-900 overflow-hidden">
+          <div className="flex-shrink-0 border-r border-slate-900 overflow-hidden" style={{ height: containerHeight }}>
             <div style={{ width: `${pinnedColumns.reduce((sum, c) => sum + (colStates[c.key]?.width ?? DEFAULT_WIDTH), 0)}px` }}>
               {/* Header */}
               <div className="bg-slate-900/60 border-b border-slate-900 text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 flex items-center gap-2 sticky top-0 z-10">
@@ -236,8 +236,12 @@ const GenericTable = ({
                   </div>
                 ))}
               </div>
-              {/* Rows */}
-              <div style={{ height: `${sortedIndices.length * rowHeight}px`, position: 'relative' }}>
+              {/* Rows — this panel doesn't scroll itself (clipped + synced to the
+                  scrollable panel's scrollTop via the shared `visibleIndices` window),
+                  so each row is positioned at its LOCAL slot (i * rowHeight), not its
+                  offset within the full unclipped list ((startIndex + i) * rowHeight) -
+                  that formula is only correct for a panel that is itself scrolling. */}
+              <div style={{ height: `${containerHeight}px`, position: 'relative' }}>
                 {visibleIndices.map((rowIdx, i) => {
                   const row = getRowAt(dataset, rowIdx);
                   return (
@@ -246,7 +250,7 @@ const GenericTable = ({
                       className={`flex items-center px-4 border-b border-slate-900/50 hover:bg-slate-900/40 text-slate-300 text-xs font-mono cursor-pointer ${
                         selectedRow === rowIdx ? 'bg-slate-900/60' : ''
                       }`}
-                      style={{ height: `${rowHeight}px`, position: 'absolute', top: `${(startIndex + i) * rowHeight}px`, left: 0, right: 0 }}
+                      style={{ height: `${rowHeight}px`, position: 'absolute', top: `${i * rowHeight}px`, left: 0, right: 0 }}
                       onClick={() => { setSelectedRow(rowIdx); setDetailRow(row); onRowClick?.(row); }}
                     >
                       {pinnedColumns.map(col => (
@@ -263,7 +267,13 @@ const GenericTable = ({
         )}
 
         {/* Scrollable columns */}
-        <div className="flex-1 overflow-auto" ref={containerRef} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
+        <div
+          className="flex-1 overflow-auto"
+          data-testid="table-scroll-container"
+          style={{ height: containerHeight }}
+          ref={containerRef}
+          onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+        >
           <div style={{ width: `${totalWidth}px` }}>
             {/* Header */}
             <div className="bg-slate-900/60 border-b border-slate-900 text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 flex items-center sticky top-0 z-10">
@@ -295,6 +305,7 @@ const GenericTable = ({
                 return (
                   <div
                     key={rowIdx}
+                    data-testid="table-row"
                     className={`flex items-center px-4 border-b border-slate-900/50 hover:bg-slate-900/40 text-slate-300 text-xs font-mono cursor-pointer ${
                       selectedRow === rowIdx ? 'bg-slate-900/60' : ''
                     }`}
