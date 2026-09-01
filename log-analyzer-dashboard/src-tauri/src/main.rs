@@ -91,6 +91,7 @@ fn file_info(handle: FileHandle, registry: RegistryState) -> Result<serde_json::
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(FileRegistry::new()))
         .invoke_handler(tauri::generate_handler![open_file, read_chunk, close_file, file_info])
         .run(tauri::generate_context!())
