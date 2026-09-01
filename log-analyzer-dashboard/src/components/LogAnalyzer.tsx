@@ -17,7 +17,7 @@ import { useState, useCallback, useMemo } from 'react';
 import type { Dataset } from '../lib/types';
 import { parseQuery, filterRows, type ParsedQuery, type QueryExpr } from '../lib/query';
 import { serializeQuery } from '../lib/query-serialize';
-import GenericTable, { type ColumnState, type SortState } from './GenericTable';
+import GenericTable, { createInitialColumnStates, type ColumnState, type SortState } from './GenericTable';
 import { QueryBar } from './QueryBar';
 import { FilterChips } from './FilterChips';
 import { InsightsRail } from './InsightsRail';
@@ -32,9 +32,7 @@ interface LogAnalyzerProps {
 export const LogAnalyzer = ({ dataset }: LogAnalyzerProps) => {
   const [query, setQuery] = useState('');
   const [colStates, setColStates] = useState<Record<string, ColumnState>>(() =>
-    Object.fromEntries(dataset.columns.map((c, i) => [c.key, {
-      key: c.key, width: 140, visible: true, pinned: false, order: i,
-    }])),
+    createInitialColumnStates(dataset.columns, dataset.stores, dataset.rowCount),
   );
   const [sort, setSort] = useState<SortState>({ columnKey: '', direction: 'none' });
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -193,6 +191,10 @@ export const LogAnalyzer = ({ dataset }: LogAnalyzerProps) => {
             dataset={dataset}
             rowHeight={36}
             containerHeight={500}
+            rowIndices={filteredIndices}
+            colStates={colStates}
+            onColStatesChange={setColStates}
+            sort={sort}
             onSort={handleSort}
           />
         </div>

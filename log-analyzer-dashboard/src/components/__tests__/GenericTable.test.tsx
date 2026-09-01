@@ -246,4 +246,57 @@ describe('GenericTable', () => {
       expect(cell.textContent).toBe(longValue);
     });
   });
+
+  describe('controlled props (rowIndices / colStates / sort) — regression: LogAnalyzer computed these but never passed them down', () => {
+    it('rowIndices restricts which rows render, independent of dataset.rowCount', () => {
+      render(<GenericTable dataset={makeDataset()} rowIndices={[1]} />);
+      expect(screen.queryByText('/api/search')).toBeNull();
+      expect(screen.getByText('/api/missing')).toBeTruthy();
+      expect(screen.getByText('1 entries')).toBeTruthy(); // footer reflects the restricted set, not rowCount
+    });
+
+    it('an externally-controlled colStates hides a column the internal state would show', () => {
+      const ds = makeDataset();
+      const colStates = Object.fromEntries(ds.columns.map((c, i) => [c.key, {
+        key: c.key, width: 140, visible: c.key !== 'ts', pinned: false, order: i,
+      }]));
+      render(<GenericTable dataset={ds} colStates={colStates} onColStatesChange={() => {}} />);
+      expect(screen.queryByText('Timestamp')).toBeNull();
+      expect(screen.getAllByText('Status').length).toBeGreaterThan(0);
+    });
+
+    it('changes are reported via onColStatesChange, not silently kept in an internal copy', () => {
+      const ds = makeDataset();
+      const initialColStates = Object.fromEntries(ds.columns.map((c, i) => [c.key, {
+        key: c.key, width: 140, visible: true, pinned: false, order: i,
+      }]));
+      const onColStatesChange = vi.fn();
+
+      render(<GenericTable dataset={ds} colStates={initialColStates} onColStatesChange={onColStatesChange} />);
+
+      // Drag-resize the first column's handle (avoids canvas — jsdom's 2d context is
+      // null, so the canvas-measuring double-click-to-fit path can't run in tests).
+      const handle = screen.getAllByTestId('table-header-cell')[0].querySelector('.cursor-col-resize') as HTMLElement;
+      fireEvent.mouseDown(handle, { clientX: 100 });
+      fireEvent.mouseMove(document, { clientX: 160 });
+      fireEvent.mouseUp(document);
+
+      expect(onColStatesChange).toHaveBeenCalledTimes(1);
+      const reported = onColStatesChange.mock.calls[0][0];
+      expect(reported.ts.width).toBe(200); // 140 + (160 - 100)
+
+      // The prop passed to the component never changed (this fake parent ignored the
+      // callback) — the rendered width must still reflect that ORIGINAL prop, proving
+      // there's no hidden internal copy quietly taking over regardless of props.
+      const stillOriginalHeader = screen.getAllByTestId('table-header-cell')[0];
+      expect((stillOriginalHeader as HTMLElement).style.width).toBe('140px');
+    });
+
+    it('an externally-controlled sort overrides the internal default', () => {
+      render(<GenericTable dataset={makeDataset()} sort={{ columnKey: 'uri', direction: 'desc' }} />);
+      const headerCells = screen.getAllByTestId('table-header-cell');
+      const uriHeader = headerCells.find(el => el.textContent?.includes('URI'));
+      expect(uriHeader?.textContent).toContain('↓');
+    });
+  });
 });

@@ -20,7 +20,7 @@
  * Pure presentation — all state managed by parent via props.
  */
 
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type { ColumnDef, Dataset, Row } from '../lib/types';
 import { getRowAt } from '../lib/types';
 
@@ -41,6 +41,19 @@ export interface GenericTableProps {
   dataset: Dataset;
   rowHeight?: number;
   containerHeight?: number;
+  /** Base row set to display, e.g. the result of a query filter. Omit to show every row. */
+  rowIndices?: number[];
+  /**
+   * Column visibility/width/pin/order. Omit to let GenericTable manage this itself
+   * (its original behavior, and what the existing tests rely on). Pass both this AND
+   * onColStatesChange together to let a parent (e.g. a command palette's "hide column")
+   * actually drive the table — passing colStates without a change handler makes it
+   * effectively read-only.
+   */
+  colStates?: Record<string, ColumnState>;
+  onColStatesChange?: (next: Record<string, ColumnState>) => void;
+  /** Sort state. Omit to let GenericTable manage it itself. */
+  sort?: SortState;
   onSort?: (sort: SortState) => void;
   onRowClick?: (row: Row) => void;
 }
@@ -96,22 +109,38 @@ function computeInitialColumnWidths(
   return widths;
 }
 
+/**
+ * Build a fresh initial ColumnState map (auto-fit widths, all visible, unpinned, in
+ * dataset order). The single source of truth for "what a column state looks like on
+ * first load" — used both by GenericTable's own internal fallback state and by any
+ * parent (e.g. LogAnalyzer) that wants to own colStates itself, so a controlling
+ * parent doesn't have to reimplement (and drift from) the auto-sizing logic.
+ */
+export function createInitialColumnStates(
+  columns: ColumnDef[], stores: Dataset['stores'], rowCount: number,
+): Record<string, ColumnState> {
+  const widths = computeInitialColumnWidths(columns, stores, rowCount);
+  return Object.fromEntries(columns.map((c, i) => [c.key, {
+    key: c.key, width: widths[c.key] ?? DEFAULT_WIDTH, visible: true, pinned: false, order: i,
+  }]));
+}
+
 const GenericTable = ({
   dataset,
   rowHeight = 36,
   containerHeight = 500,
+  rowIndices,
+  colStates: colStatesProp,
+  onColStatesChange,
+  sort: sortProp,
   onSort,
   onRowClick,
 }: GenericTableProps) => {
   const [scrollTop, setScrollTop] = useState(0);
-  const [sort, setSort] = useState<SortState>({ columnKey: '', direction: 'none' });
-  const sortRef = useRef<SortState>({ columnKey: '', direction: 'none' });
-  const [colStates, setColStates] = useState<Record<string, ColumnState>>(() => {
-    const widths = computeInitialColumnWidths(dataset.columns, dataset.stores, dataset.rowCount);
-    return Object.fromEntries(dataset.columns.map((c, i) => [c.key, {
-      key: c.key, width: widths[c.key] ?? DEFAULT_WIDTH, visible: true, pinned: false, order: i,
-    }]));
-  });
+  const [internalSort, setInternalSort] = useState<SortState>({ columnKey: '', direction: 'none' });
+  const [internalColStates, setInternalColStates] = useState<Record<string, ColumnState>>(() =>
+    createInitialColumnStates(dataset.columns, dataset.stores, dataset.rowCount),
+  );
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [detailRow, setDetailRow] = useState<Row | null>(null);
   const [contextCell, setContextCell] = useState<{ x: number; y: number; row: Row; col: ColumnDef } | null>(null);
@@ -120,9 +149,47 @@ const GenericTable = ({
 
   const { columns, stores, rowCount } = dataset;
 
+  // Controlled/uncontrolled hybrid: a parent that wants to drive sort or column
+  // state (filtering, hiding, pinning) passes it as a prop; otherwise this
+  // component manages it itself, same as before. See GenericTableProps doc comments.
+  const isColStatesControlled = colStatesProp !== undefined;
+  const colStates = isColStatesControlled ? colStatesProp : internalColStates;
+  const setColStates = useCallback((updater: React.SetStateAction<Record<string, ColumnState>>) => {
+    if (isColStatesControlled) {
+      const next = typeof updater === 'function' ? updater(colStatesProp) : updater;
+      onColStatesChange?.(next);
+    } else {
+      setInternalColStates(updater);
+    }
+  }, [isColStatesControlled, colStatesProp, onColStatesChange]);
+
+  const isSortControlled = sortProp !== undefined;
+  const sort = isSortControlled ? sortProp : internalSort;
+
+  // Reset scroll when the underlying row set changes shape (e.g. a new filter
+  // applied) — otherwise a deep scroll position from a longer result set leaves
+  // the table showing a blank window into a now much-shorter list. The state
+  // reset is derived during render (same pattern as CommandPalette.tsx's
+  // queryRef) rather than in an effect, per this codebase's lint rule against
+  // calling setState synchronously inside an effect (avoids an extra cascading
+  // render). The actual DOM scrollTop, a real external-system mutation, stays
+  // in an effect — that's exactly what effects are for.
+  const rowIndicesRef = useRef(rowIndices);
+  if (rowIndicesRef.current !== rowIndices) {
+    rowIndicesRef.current = rowIndices;
+    setScrollTop(0);
+  }
+  useEffect(() => {
+    if (containerRef.current) containerRef.current.scrollTop = 0;
+  }, [rowIndices]);
+
   // Sorted row indices — read values from column stores
+  const baseIndices = useMemo(
+    () => rowIndices ?? Array.from({ length: rowCount }, (_, i) => i),
+    [rowIndices, rowCount],
+  );
   const sortedIndices = useMemo(() => {
-    const indices = Array.from({ length: rowCount }, (_, i) => i);
+    const indices = [...baseIndices];
     if (sort.direction === 'none') return indices;
     const col = columns.find(c => c.key === sort.columnKey);
     if (!col) return indices;
@@ -138,7 +205,7 @@ const GenericTable = ({
       return sort.direction === 'asc' ? cmp : -cmp;
     });
     return indices;
-  }, [rowCount, sort, columns, stores]);
+  }, [baseIndices, sort, columns, stores]);
 
   // Visible columns in order
   const visibleColumns = useMemo(() =>
@@ -160,16 +227,15 @@ const GenericTable = ({
   const visibleIndices = sortedIndices.slice(startIndex, endIndex);
 
   const handleSort = useCallback((key: string) => {
-    const prev = sortRef.current;
+    const prev = sort;
     const next: SortState = prev.columnKey === key
       ? prev.direction === 'asc' ? { columnKey: key, direction: 'desc' }
         : prev.direction === 'desc' ? { columnKey: key, direction: 'none' }
         : { columnKey: key, direction: 'asc' }
       : { columnKey: key, direction: 'asc' };
-    sortRef.current = next;
-    setSort(next);
+    if (!isSortControlled) setInternalSort(next);
     onSort?.(next);
-  }, [onSort]);
+  }, [sort, isSortControlled, onSort]);
 
   const handleResizeStart = useCallback((key: string, e: React.MouseEvent) => {
     e.preventDefault();
