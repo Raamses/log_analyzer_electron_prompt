@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import GenericTable from '../GenericTable';
+import GenericTable, { measureColumnWidth } from '../GenericTable';
 import type { Dataset } from '../../lib/types';
 
 const makeDataset = (overrides: Partial<Dataset> = {}): Dataset => {
@@ -155,6 +155,95 @@ describe('GenericTable', () => {
 
       expect(await screen.findByText('/api/500')).toBeTruthy();
       expect(screen.queryByText('/api/0')).toBeNull();
+    });
+  });
+
+  describe('measureColumnWidth (auto-fit sizing math)', () => {
+    // A tiny fake canvas context: width proportional to string length, so the
+    // assertions below are about the SHAPE of the sizing logic (clamped between
+    // min/max, driven by the longest sampled value), not real font metrics.
+    const fakeCtx = { measureText: (s: string) => ({ width: s.length * 7 }) };
+    const col = { label: 'URI' };
+
+    it('sizes to the header label when there is no store', () => {
+      const w = measureColumnWidth(fakeCtx, col, undefined, 0);
+      expect(w).toBe(Math.max(60, 'URI'.length * 7 + 40)); // clamped to MIN_WIDTH=60 floor
+    });
+
+    it('grows to fit the longest sampled value', () => {
+      const values = ['/a', '/api/very/long/nested/resource/path/that/is/quite/verbose', '/b'];
+      const store = { get: (i: number) => values[i] };
+      const w = measureColumnWidth(fakeCtx, col, store, values.length, { maxWidth: 1000 });
+      expect(w).toBe(values[1].length * 7 + 20);
+    });
+
+    it('never returns less than minWidth even for tiny content', () => {
+      const store = { get: () => 'x' };
+      const w = measureColumnWidth(fakeCtx, { label: '' }, store, 1, { minWidth: 60 });
+      expect(w).toBeGreaterThanOrEqual(60);
+    });
+
+    it('never returns more than maxWidth, however long the content is', () => {
+      const longValue = 'x'.repeat(500);
+      const store = { get: () => longValue };
+      const w = measureColumnWidth(fakeCtx, col, store, 1, { maxWidth: 320 });
+      expect(w).toBe(320);
+    });
+
+    it('only samples up to sampleSize rows (does not scan the whole dataset)', () => {
+      // Row 0 is short; everything past the sample window is long. If sampling
+      // scanned the whole store, the result would hit maxWidth; it shouldn't.
+      const store = { get: (i: number) => (i === 0 ? 'x' : 'x'.repeat(500)) };
+      const w = measureColumnWidth(fakeCtx, col, store, 10_000, { sampleSize: 1, maxWidth: 1000 });
+      expect(w).toBeLessThan(500 * 7);
+    });
+  });
+
+  describe('column sizing and overflow protection (fixes: flat 140px default, long values bleeding into the next column)', () => {
+    const makeVariedWidthDataset = () => {
+      const stores = new Map();
+      stores.set('status', { get: () => 200 });
+      stores.set('uri', {
+        get: () => '/api/very/long/nested/resource/path/that/goes/on/and/on/and/would/have/overflowed/its/column',
+      });
+      return makeDataset({
+        columns: [
+          { key: 'status', sourceName: 'status', label: 'Status', role: 'status', type: 'int', index: 0, nullable: false, confidence: 1, derived: false },
+          { key: 'uri', sourceName: 'uri', label: 'URI', role: 'uri', type: 'url', index: 1, nullable: false, confidence: 1, derived: false },
+        ],
+        stores: stores as any,
+        rowCount: 1,
+        index: new Uint32Array([0]),
+      });
+    };
+
+    it('every column cell has min-w-0 + overflow-hidden so content cannot bleed past its own column', () => {
+      const { container } = render(<GenericTable dataset={makeVariedWidthDataset()} />);
+
+      const headerCells = screen.getAllByTestId('table-header-cell');
+      expect(headerCells.length).toBeGreaterThan(0);
+      headerCells.forEach((el) => {
+        expect(el.className).toContain('min-w-0');
+        expect(el.className).toContain('overflow-hidden');
+      });
+
+      // Body cells: the direct children of each row (data-testid="table-row")
+      // ARE the per-column wrapper divs — nothing else is a direct child.
+      const bodyCells = container.querySelectorAll('[data-testid="table-row"] > div');
+      expect(bodyCells.length).toBeGreaterThan(0);
+      bodyCells.forEach((cell) => {
+        expect(cell.className).toContain('min-w-0');
+        expect(cell.className).toContain('overflow-hidden');
+      });
+    });
+
+    it('a long cell value renders inside a truncating block element with the full value in a title tooltip', () => {
+      render(<GenericTable dataset={makeVariedWidthDataset()} />);
+      const longValue = '/api/very/long/nested/resource/path/that/goes/on/and/on/and/would/have/overflowed/its/column';
+      const cell = screen.getByTitle(longValue);
+      expect(cell.tagName).toBe('DIV'); // not a bare <span> — see GenericTable.tsx renderCell comment
+      expect(cell.className).toContain('truncate');
+      expect(cell.textContent).toBe(longValue);
     });
   });
 });

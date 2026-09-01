@@ -47,6 +47,54 @@ export interface GenericTableProps {
 
 const DEFAULT_WIDTH = 140;
 const MIN_WIDTH = 60;
+const AUTO_FIT_MAX_WIDTH = 320; // initial auto-size cap — deliberately tighter than the
+                                 // manual double-click-to-fit cap (600) so one long-text
+                                 // column (a URI, a User-Agent) can't dominate the table by
+                                 // default. Full value is always one hover/manual-widen away.
+
+interface MeasureCtx {
+  measureText(text: string): { width: number };
+}
+
+/**
+ * Ideal width for one column: max(header label, a sample of real values), clamped.
+ * Pure and side-effect-free — shared by the initial auto-sizing pass and the manual
+ * double-click-to-fit handler so they can't drift into two different behaviors.
+ */
+export function measureColumnWidth(
+  ctx: MeasureCtx,
+  col: Pick<ColumnDef, 'label'>,
+  store: { get(i: number): unknown } | undefined,
+  rowCount: number,
+  opts: { sampleSize?: number; minWidth?: number; maxWidth?: number } = {},
+): number {
+  const { sampleSize = 100, minWidth = MIN_WIDTH, maxWidth = 600 } = opts;
+  let maxW = ctx.measureText(col.label).width + 40;
+  if (store) {
+    for (let i = 0; i < Math.min(rowCount, sampleSize); i++) {
+      const v = String(store.get(i) ?? '');
+      maxW = Math.max(maxW, ctx.measureText(v).width + 20);
+    }
+  }
+  return Math.min(Math.max(minWidth, maxW), maxWidth);
+}
+
+function computeInitialColumnWidths(
+  columns: ColumnDef[], stores: Dataset['stores'], rowCount: number,
+): Record<string, number> {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const widths: Record<string, number> = {};
+  if (!ctx) {
+    for (const col of columns) widths[col.key] = DEFAULT_WIDTH;
+    return widths;
+  }
+  ctx.font = '12px ui-monospace, monospace';
+  for (const col of columns) {
+    widths[col.key] = measureColumnWidth(ctx, col, stores.get(col.key), rowCount, { maxWidth: AUTO_FIT_MAX_WIDTH });
+  }
+  return widths;
+}
 
 const GenericTable = ({
   dataset,
@@ -58,11 +106,12 @@ const GenericTable = ({
   const [scrollTop, setScrollTop] = useState(0);
   const [sort, setSort] = useState<SortState>({ columnKey: '', direction: 'none' });
   const sortRef = useRef<SortState>({ columnKey: '', direction: 'none' });
-  const [colStates, setColStates] = useState<Record<string, ColumnState>>(() =>
-    Object.fromEntries(dataset.columns.map((c, i) => [c.key, {
-      key: c.key, width: DEFAULT_WIDTH, visible: true, pinned: false, order: i,
-    }])),
-  );
+  const [colStates, setColStates] = useState<Record<string, ColumnState>>(() => {
+    const widths = computeInitialColumnWidths(dataset.columns, dataset.stores, dataset.rowCount);
+    return Object.fromEntries(dataset.columns.map((c, i) => [c.key, {
+      key: c.key, width: widths[c.key] ?? DEFAULT_WIDTH, visible: true, pinned: false, order: i,
+    }]));
+  });
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [detailRow, setDetailRow] = useState<Row | null>(null);
   const [contextCell, setContextCell] = useState<{ x: number; y: number; row: Row; col: ColumnDef } | null>(null);
@@ -141,22 +190,17 @@ const GenericTable = ({
   }, [colStates]);
 
   const handleResizeDoubleClick = useCallback((key: string) => {
-    // Fit to content: measure all visible cells
+    // Fit to content: measure all visible cells. Uncapped (well, capped at 600, not the
+    // tighter 320 the initial auto-size uses) — an explicit double-click means the user
+    // wants to actually see this column's full content, not a conservative default.
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.font = '12px ui-monospace, monospace';
     const col = columns.find(c => c.key === key);
     if (!col) return;
-    let maxW = ctx.measureText(col.label).width + 40;
-    const store = stores.get(key);
-    if (store) {
-      for (let i = 0; i < Math.min(rowCount, 100); i++) {
-        const v = String(store.get(i) ?? '');
-        maxW = Math.max(maxW, ctx.measureText(v).width + 20);
-      }
-    }
-    setColStates(prev => ({ ...prev, [key]: { ...prev[key], width: Math.min(Math.max(MIN_WIDTH, maxW), 600) } }));
+    const width = measureColumnWidth(ctx, col, stores.get(key), rowCount, { maxWidth: 600 });
+    setColStates(prev => ({ ...prev, [key]: { ...prev[key], width } }));
   }, [columns, stores, rowCount]);
 
   const handleShowColumn = useCallback((key: string) => {
@@ -195,12 +239,18 @@ const GenericTable = ({
   }, []);
 
   const renderCell = (row: Row, col: ColumnDef, formatted: string) => {
+    // A block element, not a span: a plain inline span has no width of its own to
+    // truncate/ellipsize against — it just silently overflows its parent. `truncate`
+    // (overflow:hidden + text-overflow:ellipsis + white-space:nowrap) only does anything
+    // useful on a block-level box, which is what actually needs to happen here so long
+    // values (a URI, a User-Agent) stay inside their own column. `title` keeps the full
+    // value one hover away.
     if (col.role === 'status') {
       const s = Number(row[col.key]);
       const cls = !isNaN(s) && s >= 400 ? 'text-red-400' : 'text-emerald-400';
-      return <span className={cls}>{formatted}</span>;
+      return <div className={`truncate ${cls}`} title={formatted}>{formatted}</div>;
     }
-    return <span className="truncate">{formatted}</span>;
+    return <div className="truncate" title={formatted}>{formatted}</div>;
   };
 
   return (
@@ -231,8 +281,8 @@ const GenericTable = ({
               {/* Header */}
               <div className="bg-slate-900/60 border-b border-slate-900 text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 flex items-center gap-2 sticky top-0 z-10">
                 {pinnedColumns.map(col => (
-                  <div key={col.key} className="flex items-center gap-1" style={{ width: colStates[col.key]?.width ?? DEFAULT_WIDTH }}>
-                    <span className="truncate">{col.label}</span>
+                  <div key={col.key} data-testid="table-header-cell" className="flex items-center gap-1 min-w-0 overflow-hidden" style={{ width: colStates[col.key]?.width ?? DEFAULT_WIDTH }}>
+                    <span className="truncate" title={col.label}>{col.label}</span>
                   </div>
                 ))}
               </div>
@@ -254,7 +304,7 @@ const GenericTable = ({
                       onClick={() => { setSelectedRow(rowIdx); setDetailRow(row); onRowClick?.(row); }}
                     >
                       {pinnedColumns.map(col => (
-                        <div key={col.key} style={{ width: colStates[col.key]?.width ?? DEFAULT_WIDTH }}>
+                        <div key={col.key} className="min-w-0 overflow-hidden" style={{ width: colStates[col.key]?.width ?? DEFAULT_WIDTH }}>
                           {renderCell(row, col, formatValue(row[col.key], col))}
                         </div>
                       ))}
@@ -280,11 +330,12 @@ const GenericTable = ({
               {scrollColumns.map(col => (
                 <div
                   key={col.key}
-                  className="flex items-center gap-1 group relative cursor-pointer select-none"
+                  data-testid="table-header-cell"
+                  className="flex items-center gap-1 group relative cursor-pointer select-none min-w-0 overflow-hidden"
                   style={{ width: colStates[col.key]?.width ?? DEFAULT_WIDTH }}
                   onClick={() => handleSort(col.key)}
                 >
-                  <span className="truncate">{col.label}</span>
+                  <span className="truncate" title={col.label}>{col.label}</span>
                   {sort.columnKey === col.key && (
                     <span className="text-indigo-400">{sort.direction === 'asc' ? '↑' : '↓'}</span>
                   )}
@@ -313,7 +364,7 @@ const GenericTable = ({
                     onClick={() => { setSelectedRow(rowIdx); setDetailRow(row); onRowClick?.(row); }}
                   >
                     {scrollColumns.map(col => (
-                      <div key={col.key} style={{ width: colStates[col.key]?.width ?? DEFAULT_WIDTH }}>
+                      <div key={col.key} className="min-w-0 overflow-hidden" style={{ width: colStates[col.key]?.width ?? DEFAULT_WIDTH }}>
                         {renderCell(row, col, formatValue(row[col.key], col))}
                       </div>
                     ))}
