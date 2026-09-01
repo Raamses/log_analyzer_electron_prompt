@@ -127,3 +127,60 @@ describe('normalizeRow', () => {
     expect(norm[2]).toBe('');
   });
 });
+
+describe('normalizeRow — split date+time columns (IIS W3C regression)', () => {
+  // IIS W3C binds `date` and `time` as two SEPARATE columns, both role
+  // 'timestamp'. Neither parses alone (parseTimestamp requires a combined
+  // "YYYY-MM-DD HH:MM:SS" string), so the primary timestamp column used
+  // to come back empty on every row — silently breaking sort/timeline/
+  // anomaly detection, since nothing downstream threw an error.
+  const columns: ColumnDef[] = [
+    { key: 'date', sourceName: 'date', label: 'Date', role: 'timestamp', type: 'date', index: 0, nullable: false, confidence: 0.7, derived: false },
+    { key: 'time', sourceName: 'time', label: 'Time', role: 'timestamp', type: 'date', index: 1, nullable: false, confidence: 0.7, derived: false },
+    { key: 'sc-status', sourceName: 'sc-status', label: 'SC Status', role: 'status', type: 'int', index: 2, nullable: false, confidence: 0.95, derived: false },
+  ];
+  const schema: Schema = {
+    format: 'iis-w3c', label: 'IIS W3C Extended',
+    bindings: [
+      { role: 'timestamp', columnKey: 'date', priority: 0, multiplicity: 'single' },
+      { role: 'timestamp', columnKey: 'time', priority: 0, multiplicity: 'single' },
+      { role: 'status', columnKey: 'sc-status', priority: 0, multiplicity: 'single' },
+    ],
+    primary: { timestamp: 'date' },
+    timezone: 'utc',
+  };
+
+  it('combines date + time onto the primary timestamp column', () => {
+    const raw = ['2026-07-11', '00:03:35', '200'];
+    const norm = normalizeRow(raw, columns, schema);
+    expect(norm[0]).toBe(String(Date.UTC(2026, 6, 11, 0, 3, 35)));
+  });
+
+  it('leaves the non-primary timestamp column as its own (failed) parse', () => {
+    const raw = ['2026-07-11', '00:03:35', '200'];
+    const norm = normalizeRow(raw, columns, schema);
+    expect(norm[1]).toBe(''); // 'time' alone still doesn't parse — only 'date' (primary) is retried
+  });
+
+  it('falls back to the first timestamp column when schema.primary is unset', () => {
+    const noPrimary: Schema = { ...schema, primary: {} };
+    const raw = ['2026-07-11', '00:03:35', '200'];
+    const norm = normalizeRow(raw, columns, noPrimary);
+    expect(norm[0]).toBe(String(Date.UTC(2026, 6, 11, 0, 3, 35)));
+  });
+
+  it('does not touch single-timestamp-column schemas (e.g. Azure APGW)', () => {
+    const singleTsColumns: ColumnDef[] = [
+      { key: 'ts', sourceName: 'TimeGenerated [UTC]', label: 'Time', role: 'timestamp', type: 'date', index: 0, nullable: false, confidence: 1, derived: false },
+    ];
+    const singleTsSchema: Schema = {
+      format: 'azure-apgw', label: 'Azure Application Gateway',
+      bindings: [{ role: 'timestamp', columnKey: 'ts', priority: 0, multiplicity: 'single' }],
+      primary: { timestamp: 'ts' },
+      timezone: 'utc',
+    };
+    // A lone date-only value still correctly fails to parse — no sibling to combine with.
+    const norm = normalizeRow(['2026-07-11'], singleTsColumns, singleTsSchema);
+    expect(norm[0]).toBe('');
+  });
+});

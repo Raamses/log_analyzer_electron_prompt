@@ -3,6 +3,7 @@ import {
   frame, parseDelimitedLine, unwrapLines,
   detectCompression, detectEncoding, decodeBytes, sniffFormat,
   extractW3C, extractDelimited, extractJsonLines, extractCLF, extractKeyValue,
+  normalizeLineEndings, delimiterForFormat,
 } from '../dialect';
 
 describe('RFC4180 parseDelimitedLine', () => {
@@ -54,6 +55,52 @@ describe('unwrapLines (RFC4180 multiline)', () => {
   it('handles multiple wrapped lines', () => {
     const lines = ['a,"b', 'c', 'd",e'];
     expect(unwrapLines(lines, ',')).toEqual(['a,"b\nc\nd",e']);
+  });
+});
+
+describe('normalizeLineEndings', () => {
+  it('converts CRLF to LF', () => {
+    expect(normalizeLineEndings('a\r\nb\r\nc')).toBe('a\nb\nc');
+  });
+
+  it('converts lone CR to LF', () => {
+    expect(normalizeLineEndings('a\rb\rc')).toBe('a\nb\nc');
+  });
+
+  it('leaves LF-only input unchanged', () => {
+    expect(normalizeLineEndings('a\nb\nc')).toBe('a\nb\nc');
+  });
+
+  it('handles mixed line endings', () => {
+    expect(normalizeLineEndings('a\r\nb\nc\rd')).toBe('a\nb\nc\nd');
+  });
+
+  it('does not delete content — a CRLF-heavy file keeps every line', () => {
+    // Regression for the bug where `.replace(/\r\n?/g, '')` (no replacement
+    // string) glued an entire CRLF file into a single line.
+    const input = Array.from({ length: 50 }, (_, i) => `line ${i}`).join('\r\n');
+    expect(normalizeLineEndings(input).split('\n')).toHaveLength(50);
+  });
+});
+
+describe('delimiterForFormat', () => {
+  it('picks tab for tsv', () => {
+    expect(delimiterForFormat('tsv')).toBe('\t');
+  });
+
+  it('picks space for w3c', () => {
+    expect(delimiterForFormat('w3c')).toBe(' ');
+  });
+
+  it('picks comma for csv', () => {
+    expect(delimiterForFormat('csv')).toBe(',');
+  });
+
+  it('defaults to comma for formats with no positional re-parse (clf, key-value, json, unknown)', () => {
+    expect(delimiterForFormat('clf')).toBe(',');
+    expect(delimiterForFormat('key-value')).toBe(',');
+    expect(delimiterForFormat('json-lines')).toBe(',');
+    expect(delimiterForFormat('unknown')).toBe(',');
   });
 });
 
@@ -265,6 +312,22 @@ describe('frame (integration)', () => {
     expect(r.columns).toContain('a');
     expect(r.columns).toContain('b');
     expect(r.rows).toHaveLength(2);
+  });
+
+  it('frames CRLF-terminated W3C input end-to-end (IIS-on-Windows regression)', () => {
+    const input = [
+      '#Software: Microsoft Internet Information Services 10.0',
+      '#Version: 1.0',
+      '#Date: 2026-07-11 00:03:36',
+      '#Fields: date time c-ip cs-method cs-uri-stem sc-status time-taken',
+      '2026-07-11 00:03:35 172.16.16.19 GET /api/nopapi/GetSearchSettings 200 553',
+      '2026-07-11 00:03:35 172.16.16.19 GET /api/nopapi/GetAllBaseRatesListCodes 200 40',
+    ].join('\r\n');
+    const r = frame(input);
+    expect(r.format).toBe('w3c');
+    expect(r.columns).toEqual(['date', 'time', 'c-ip', 'cs-method', 'cs-uri-stem', 'sc-status', 'time-taken']);
+    expect(r.rows).toHaveLength(2);
+    expect(r.rows[0]).toEqual(['2026-07-11', '00:03:35', '172.16.16.19', 'GET', '/api/nopapi/GetSearchSettings', '200', '553']);
   });
 
   it('returns warnings for empty input', () => {
