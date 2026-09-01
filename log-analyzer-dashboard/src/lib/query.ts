@@ -430,6 +430,18 @@ export function filterRows(
       fieldMap.set('timetaken', col.key);
       fieldMap.set('time_taken', col.key);
     }
+    if (col.role === 'user_agent') {
+      fieldMap.set('user_agent', col.key);
+      fieldMap.set('useragent', col.key);
+    }
+  }
+  // 'timestamp' aliases the PRIMARY timestamp column specifically, not just any
+  // column with that role — some formats (IIS W3C) split date+time into two
+  // separate timestamp-role columns; only the primary one holds a real combined
+  // value (see normalize.ts). Aliasing per-role in the loop above would have the
+  // last-processed column silently win, which is often the wrong one.
+  if (dataset.schema.primary.timestamp) {
+    fieldMap.set('timestamp', dataset.schema.primary.timestamp);
   }
 
   const resolve = (name: string): string | null => fieldMap.get(name.toLowerCase()) ?? null;

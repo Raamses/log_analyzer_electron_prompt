@@ -143,3 +143,62 @@ describe('filterRows', () => {
     expect(filterRows(rows, q.where)).toEqual([0, 1, 3]);
   });
 });
+
+describe('filterRows — user_agent and timestamp role aliases', () => {
+  const uaCols: ColumnDef[] = [
+    { key: 'status', sourceName: 'status', label: 'Status', role: 'status', type: 'int', index: 0, nullable: false, confidence: 1, derived: false },
+    { key: 'cs-user-agent', sourceName: 'cs(User-Agent)', label: 'CS User Agent', role: 'user_agent', type: 'string', index: 1, nullable: true, confidence: 1, derived: false },
+  ];
+  const uaDataset: Dataset = {
+    columns: uaCols,
+    stores: (() => {
+      const s = new Map();
+      s.set('status', { get: (i: number) => ['200', '500'][i] });
+      s.set('cs-user-agent', { get: (i: number) => ['Mozilla/5.0', 'sqlmap/1.7'][i] });
+      return s;
+    })() as any,
+    rowCount: 2,
+    index: new Uint32Array([0, 1]),
+    schema: { format: 'test', label: 'Test', bindings: [], primary: {}, timezone: 'utc' },
+    meta: { file: 'test.log', bytes: 100, parsedAt: new Date(), lineCount: 2, skipped: 0, warnings: [], sampled: false, datasetId: 'test-1', alignmentKeys: [] },
+  };
+
+  it('resolves "user_agent" to a role-mapped column with a non-canonical key (e.g. IIS cs-user-agent)', () => {
+    const q = parseQuery('user_agent contains "sqlmap"');
+    expect(filterRows(uaDataset, q.where)).toEqual([1]);
+  });
+
+  // Split date+time timestamp (IIS W3C shape): two columns share role 'timestamp',
+  // only the one named in schema.primary.timestamp holds a real combined value.
+  const splitTsCols: ColumnDef[] = [
+    { key: 'date', sourceName: 'date', label: 'Date', role: 'timestamp', type: 'date', index: 0, nullable: false, confidence: 0.7, derived: false },
+    { key: 'time', sourceName: 'time', label: 'Time', role: 'timestamp', type: 'date', index: 1, nullable: false, confidence: 0.7, derived: false },
+  ];
+  const splitTsDataset: Dataset = {
+    columns: splitTsCols,
+    stores: (() => {
+      const s = new Map();
+      s.set('date', { get: (i: number) => [1700000000000, 1800000000000][i] }); // combined, real values
+      s.set('time', { get: () => '' }); // the non-primary sibling — always empty per normalize.ts
+      return s;
+    })() as any,
+    rowCount: 2,
+    index: new Uint32Array([0, 1]),
+    schema: { format: 'iis-w3c', label: 'IIS', bindings: [], primary: { timestamp: 'date' }, timezone: 'utc' },
+    meta: { file: 'test.log', bytes: 100, parsedAt: new Date(), lineCount: 2, skipped: 0, warnings: [], sampled: false, datasetId: 'test-1', alignmentKeys: [] },
+  };
+
+  it('resolves "timestamp" to the PRIMARY timestamp column, not just any timestamp-role column', () => {
+    const q = parseQuery('timestamp >= 1750000000000');
+    expect(filterRows(splitTsDataset, q.where)).toEqual([1]);
+  });
+
+  it('does not alias "timestamp" at all when schema.primary.timestamp is unset (no silent wrong guess)', () => {
+    const dsNoPrimary: Dataset = { ...splitTsDataset, schema: { ...splitTsDataset.schema, primary: {} } };
+    const q = parseQuery('timestamp >= 1750000000000');
+    // Neither split column's own key/sourceName is literally "timestamp", so this
+    // must resolve to nothing (query.ts returns true — "can't filter" — for an
+    // unresolvable field, matching everything, not silently picking a column).
+    expect(filterRows(dsNoPrimary, q.where)).toEqual([0, 1]);
+  });
+});
