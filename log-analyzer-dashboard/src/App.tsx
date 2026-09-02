@@ -56,27 +56,28 @@ function App() {
       // Open file via Rust (returns opaque handle)
       const handle = await invoke('open_file', { path: selected });
 
+      // Get total file size
+      const total = await invoke('file_size', { handle });
+
       // Read file in chunks and build a Blob for the ingest pipeline
       const chunks: BlobPart[] = [];
       let offset = 0;
-      let total = 0;
 
-      // Read first chunk to get total size
+      // Read first chunk
       const firstChunk: any = await invoke('read_chunk', { handle, offset: 0 });
-      const firstBytes = new Uint8Array(firstChunk.data);
+      const firstBytes = new Uint8Array(firstChunk);
       chunks.push(firstBytes.buffer);
-      total = firstChunk.total;
       offset += firstBytes.byteLength;
       setLoadingProgress(Math.round((offset / total) * 100));
 
       // Read remaining chunks
       while (offset < total) {
         const chunk: any = await invoke('read_chunk', { handle, offset });
-        const bytes = new Uint8Array(chunk.data);
+        const bytes = new Uint8Array(chunk);
         chunks.push(bytes.buffer);
         offset += bytes.byteLength;
         setLoadingProgress(Math.round((offset / total) * 100));
-        if (chunk.done) break;
+        if (bytes.byteLength === 0) break;
       }
 
       // Close handle
