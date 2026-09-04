@@ -146,7 +146,14 @@ function makeTimeSeriesDataset(rows: RowSpec[]): Dataset {
 
 /** 24 five-minute buckets (2h span, matching detectRateSpike's default numBuckets),
  *  N rows each, all baseline except one bucket built by `spikeRow`. */
-function makeBucketedDataset(spikeBucket: number, rowsPerBucket: number, baselineRow: (j: number) => RowSpec, spikeRow: (j: number) => RowSpec): Dataset {
+function makeBucketedDataset(
+  spikeBucket: number,
+  rowsPerBucket: number,
+  // Callers set row CONTENT only — tsOffsetMs is computed and injected below,
+  // by bucket position, not by the caller.
+  baselineRow: (j: number) => Omit<RowSpec, 'tsOffsetMs'>,
+  spikeRow: (j: number) => Omit<RowSpec, 'tsOffsetMs'>,
+): Dataset {
   const bucketSpanMs = 300_000; // 5 min
   const rows: RowSpec[] = [];
   for (let b = 0; b < 24; b++) {
