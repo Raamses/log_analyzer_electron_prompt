@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Dataset } from './lib/types';
 import { ingestLogs } from './lib/ingest';
+import { mergeDatasets } from './lib/merge-datasets';
 import { LogAnalyzer } from './components/LogAnalyzer';
 
 function isTauri(): boolean {
@@ -12,6 +13,8 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingFileIndex, setLoadingFileIndex] = useState(0);
+  const [loadingFileCount, setLoadingFileCount] = useState(0);
   const [isTauriApp, setIsTauriApp] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -19,91 +22,112 @@ function App() {
     setIsTauriApp(isTauri());
   }, []);
 
-  const handleFile = useCallback(async (file: File) => {
+  // Ingest one or more already-selected File objects, merging them into a
+  // single Dataset if there's more than one (see lib/merge-datasets.ts — the
+  // "stitch across time" / "combine across servers" multi-file modes).
+  const loadFiles = useCallback(async (files: File[]) => {
+    if (files.length === 0) return;
     setIsLoading(true);
     setError(null);
-    setLoadingProgress(0);
+    setLoadingFileCount(files.length);
     try {
-      const result = await ingestLogs(file, {}, {
-        onProgress: (p: number) => setLoadingProgress(p),
-      });
-      setDataset(result);
+      const entries: { dataset: Dataset; label: string }[] = [];
+      for (let i = 0; i < files.length; i++) {
+        setLoadingFileIndex(i);
+        setLoadingProgress(0);
+        const parsed = await ingestLogs(files[i], {}, {
+          onProgress: (p: number) => setLoadingProgress(p),
+        });
+        entries.push({ dataset: parsed, label: files[i].name });
+      }
+      setDataset(entries.length === 1 ? entries[0].dataset : mergeDatasets(entries));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to parse file');
+      setError(e instanceof Error ? e.message : 'Failed to parse file(s)');
     } finally {
       setIsLoading(false);
+      setLoadingFileCount(0);
     }
   }, []);
 
-  // Tauri: use native file dialog + chunked reads
-  const handleTauriOpen = useCallback(async () => {
+  // Tauri: read one file via the Rust-side chunked API into a File object
+  // the existing browser-side ingest pipeline can consume unchanged.
+  const readTauriFile = useCallback(async (path: string, invoke: any, onChunkProgress: (pct: number) => void): Promise<File> => {
+    const handle = await invoke('open_file', { path });
     try {
-      const { invoke } = (window as any).__TAURI_INTERNALS__;
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const selected = await open({
-        multiple: false,
-        filters: [
-          { name: 'Log Files', extensions: ['log', 'csv', 'tsv', 'json', 'txt', 'gz', 'bz2'] },
-          { name: 'All Files', extensions: ['*'] },
-        ],
-      });
-      if (!selected || Array.isArray(selected)) return;
-
-      setError(null);
-      setIsLoading(true);
-      setLoadingProgress(0);
-
-      // Open file via Rust (returns opaque handle)
-      const handle = await invoke('open_file', { path: selected });
-
-      // Read file in chunks and build a Blob for the ingest pipeline
       const chunks: BlobPart[] = [];
       let offset = 0;
       let total = 0;
 
-      // Read first chunk to get total size
       const firstChunk: any = await invoke('read_chunk', { handle, offset: 0 });
       const firstBytes = new Uint8Array(firstChunk.data);
       chunks.push(firstBytes.buffer);
       total = firstChunk.total;
       offset += firstBytes.byteLength;
-      setLoadingProgress(Math.round((offset / total) * 100));
+      onChunkProgress(total > 0 ? Math.round((offset / total) * 100) : 100);
 
-      // Read remaining chunks
       while (offset < total) {
         const chunk: any = await invoke('read_chunk', { handle, offset });
         const bytes = new Uint8Array(chunk.data);
         chunks.push(bytes.buffer);
         offset += bytes.byteLength;
-        setLoadingProgress(Math.round((offset / total) * 100));
+        onChunkProgress(Math.round((offset / total) * 100));
         if (chunk.done) break;
       }
 
-      // Close handle
-      await invoke('close_file', { handle });
-
-      // Reconstruct a File object for the existing ingest pipeline
       const blob = new Blob(chunks);
-      const file = new File([blob], selected.split('/').pop() || selected.split('\\').pop() || 'unknown', { type: 'text/plain' });
-      await handleFile(file);
+      return new File([blob], path.split('/').pop() || path.split('\\').pop() || 'unknown', { type: 'text/plain' });
+    } finally {
+      // Always release the Rust-side handle, including on a failed/partial read.
+      await invoke('close_file', { handle });
+    }
+  }, []);
+
+  // Tauri: native multi-select file dialog + chunked reads
+  const handleTauriOpen = useCallback(async () => {
+    try {
+      const { invoke } = (window as any).__TAURI_INTERNALS__;
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        multiple: true,
+        filters: [
+          { name: 'Log Files', extensions: ['log', 'csv', 'tsv', 'json', 'txt', 'gz', 'bz2'] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+      });
+      if (!selected) return;
+      const paths = Array.isArray(selected) ? selected : [selected];
+      if (paths.length === 0) return;
+
+      setError(null);
+      setIsLoading(true);
+      setLoadingFileCount(paths.length);
+
+      const files: File[] = [];
+      for (let i = 0; i < paths.length; i++) {
+        setLoadingFileIndex(i);
+        setLoadingProgress(0);
+        files.push(await readTauriFile(paths[i], invoke, setLoadingProgress));
+      }
+      await loadFiles(files);
     } catch (e: any) {
       const msg = typeof e === 'string' ? e : e?.message || e?.error || 'Failed to open file';
       setError(msg);
-    } finally {
       setIsLoading(false);
+      setLoadingFileCount(0);
     }
-  }, [handleFile]);
+  }, [readTauriFile, loadFiles]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
-  }, [handleFile]);
+    const files = Array.from(e.target.files ?? []);
+    if (files.length > 0) loadFiles(files);
+    e.target.value = ''; // allow re-selecting the same file(s) again later
+  }, [loadFiles]);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleFile(file);
-  }, [handleFile]);
+    const files = Array.from(e.dataTransfer.files ?? []);
+    if (files.length > 0) loadFiles(files);
+  }, [loadFiles]);
 
   const handleOpen = isTauriApp ? handleTauriOpen : () => fileInputRef.current?.click();
 
@@ -119,7 +143,7 @@ function App() {
               Log Analyzer
             </h1>
             <p className="text-slate-400 text-sm mt-1">
-              Upload a log file to explore it with query-first analytics.
+              Upload one or more log files to explore them with query-first analytics.
             </p>
           </div>
           {isTauriApp && (
@@ -137,13 +161,18 @@ function App() {
             <input
               ref={fileInputRef}
               type="file"
+              multiple
               accept=".log,.csv,.tsv,.json,.gz,.zst"
               onChange={handleFileSelect}
               className="hidden"
             />
             {isLoading ? (
               <div>
-                <div className="text-indigo-400 text-sm font-semibold mb-2">Parsing… {loadingProgress}%</div>
+                <div className="text-indigo-400 text-sm font-semibold mb-2">
+                  {loadingFileCount > 1
+                    ? `Parsing file ${loadingFileIndex + 1} of ${loadingFileCount}… ${loadingProgress}%`
+                    : `Parsing… ${loadingProgress}%`}
+                </div>
                 <div className="w-48 h-1 bg-slate-800 rounded mx-auto overflow-hidden">
                   <div className="h-full bg-indigo-500 transition-all" style={{ width: `${loadingProgress}%` }} />
                 </div>
@@ -151,10 +180,11 @@ function App() {
             ) : (
               <div className="text-slate-400 text-sm">
                 <span className="text-indigo-400 font-semibold">
-                  {isTauriApp ? 'Click to open file' : 'Click to upload'}
+                  {isTauriApp ? 'Click to open file(s)' : 'Click to upload'}
                 </span>
-                {isTauriApp ? '' : ' or drag & drop a log file'}
+                {isTauriApp ? '' : ' or drag & drop log file(s)'}
                 <div className="text-xs mt-2 text-slate-500">Supports W3C, CSV, TSV, JSON-lines, Cloudflare, Azure APGW + gzip/zstd</div>
+                <div className="text-xs mt-1 text-slate-600">Select multiple same-format files to merge them into one view</div>
               </div>
             )}
           </div>

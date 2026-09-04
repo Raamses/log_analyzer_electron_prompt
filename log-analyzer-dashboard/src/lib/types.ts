@@ -18,6 +18,7 @@ export type Role =
   | 'host' | 'referrer' | 'protocol' | 'edge_location'
   | 'cache_status' | 'backend' | 'request_id' | 'waf_action'
   | 'tls_version' | 'country' | 'category'
+  | 'source_file' // synthetic, added by mergeDatasets — which input file a row came from
   | 'unknown';
 
 export type CellType = 'string' | 'number' | 'int' | 'date' | 'bool' | 'ip' | 'url';
@@ -82,6 +83,9 @@ export interface DatasetMeta {
   sampled: boolean;
   datasetId: string;
   alignmentKeys: string[];
+  /** Set only for a dataset produced by mergeDatasets() — the original file
+   *  names, in merge order. Absent (not empty) for a normal single-file load. */
+  sourceFiles?: string[];
 }
 
 /**
