@@ -54,24 +54,22 @@ function App() {
   const readTauriFile = useCallback(async (path: string, invoke: any, onChunkProgress: (pct: number) => void): Promise<File> => {
     const handle = await invoke('open_file', { path });
     try {
+      // file_size is a dedicated upfront call (not derived from the first
+      // chunk's response) — lets every chunk, including the first, go through
+      // one uniform loop instead of a special-cased "read first chunk" step.
+      const total: number = await invoke('file_size', { handle });
       const chunks: BlobPart[] = [];
       let offset = 0;
-      let total = 0;
-
-      const firstChunk: any = await invoke('read_chunk', { handle, offset: 0 });
-      const firstBytes = new Uint8Array(firstChunk.data);
-      chunks.push(firstBytes.buffer);
-      total = firstChunk.total;
-      offset += firstBytes.byteLength;
-      onChunkProgress(total > 0 ? Math.round((offset / total) * 100) : 100);
 
       while (offset < total) {
+        // read_chunk returns the raw bytes directly (fast binary IPC, no JSON
+        // wrapper) — EOF is an empty read, not a `done` flag.
         const chunk: any = await invoke('read_chunk', { handle, offset });
-        const bytes = new Uint8Array(chunk.data);
+        const bytes = new Uint8Array(chunk);
+        if (bytes.byteLength === 0) break;
         chunks.push(bytes.buffer);
         offset += bytes.byteLength;
         onChunkProgress(Math.round((offset / total) * 100));
-        if (chunk.done) break;
       }
 
       const blob = new Blob(chunks);
