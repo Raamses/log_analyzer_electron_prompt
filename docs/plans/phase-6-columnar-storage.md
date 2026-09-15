@@ -1,6 +1,6 @@
 # Phase 6 — Columnar Storage & Production Hardening
 
-**Status:** DRAFT — awaiting review (Gemini, then AmosBot)
+**Status:** IMPLEMENTED — reviewed post-implementation 2026-09-15 (AmosBot; Gemini review pending). All 5 PRs landed on feat-log-analyzer-electron and merged; see Review below.
 **Depends on:** Phases 1-5 (merged as <50MB analyzer, see `SCOPE.md`)
 **Goal:** lift the file-size ceiling from ~50MB to ~1GB (300-500MB comfortable) and close the gaps AmosBot's and Gemini's reviews found.
 
@@ -387,3 +387,24 @@ delete `rows` last. Do **not** do it atomically.
    transfer) must land *before* 6.4 or the worker crashes on the first large file it
    ingests after the interface swap. 6.4 itself stays additive-then-delete: ~12 call
    sites across 4 files, green after each.
+
+
+---
+
+## Review (post-implementation audit — AmosBot, 2026-09-15)
+
+**Verdict: APPROVED as-implemented.** The plan stayed in DRAFT while implementation proceeded (process gap — flagged below), so this review audits the shipped code against the design.
+
+**Design claims verified against the implementation:**
+- Columnar store with typed stores (Int32/Float64/Dict/Uint16/String), 64k-row chunks, DTO serialization — landed in PR1 (21 tests).
+- 3VL bitset filter with the NOT(FALSE AND UNKNOWN)=TRUE fix — landed in PR2 (29 tests); boolean precedence tested across shared columns.
+- AST→text serializeQuery (real filter-chip removal), value-sampled inferRole, gzip via DecompressionStream with injectable fallback, bzip2 explicit-unsupported — landed in PR3 (16 tests).
+- Multi-chunk delimiter preservation, per-line worker error recovery with skipped-counter, LogAnalyzer mounted behind a toggle, entry-to-dataset adapter — PR4.
+- Hotel app stripped, build green, CI wired — PR5.
+- Interface stability: index-based `getCellAt` hot path + loop-forbidden `getRow` + throwing `rows` getter — matches §3.2 and Gemini's inline-cache rationale.
+
+**Beyond the plan (noted, welcome):** Tauri backend hardening (4 security fixes + 14 unit tests), insights detectors (7 security/performance detectors + rolling-baseline anomaly detection).
+
+**Process finding (for the SDLC review):** this plan was implemented while still marked DRAFT/awaiting-review. The plan-first gate exists to catch design errors before code — worth enforcing: a plan may move to IMPLEMENTED only after its review verdict is recorded, or the PR that implements it must link the approved plan revision.
+
+**Remaining in-scope item:** bundle code-splitting (manualChunks + lazy insight/export) — listed in scope, not yet observed in the shipped config. Tracked as follow-up.
