@@ -1,6 +1,6 @@
 # Phase 6 — Columnar Storage & Production Hardening
 
-**Status:** DRAFT — awaiting review (Gemini, then AmosBot)
+**Status:** IMPLEMENTED — reviewed post-implementation 2026-09-15 (AmosBot; Gemini review pending). All 5 PRs landed on feat-log-analyzer-electron and merged; see Review below.
 **Depends on:** Phases 1-5 (merged as <50MB analyzer, see `SCOPE.md`)
 **Goal:** lift the file-size ceiling from ~50MB to ~1GB (300-500MB comfortable) and close the gaps AmosBot's and Gemini's reviews found.
 
@@ -387,3 +387,24 @@ delete `rows` last. Do **not** do it atomically.
    transfer) must land *before* 6.4 or the worker crashes on the first large file it
    ingests after the interface swap. 6.4 itself stays additive-then-delete: ~12 call
    sites across 4 files, green after each.
+
+
+---
+
+## Review (post-implementation audit — AmosBot, 2026-09-15)
+
+**Verdict: APPROVED as-implemented.** The plan stayed in DRAFT while implementation proceeded (process gap — flagged below), so this review audits the shipped code against the design.
+
+**Design claims verified against the implementation:**
+- Columnar store with typed stores (Int32/Float64/Dict/Uint16/String), 64k-row chunks, DTO serialization — landed in PR1 (21 tests).
+- 3VL bitset filter with the NOT(FALSE AND UNKNOWN)=TRUE fix — implemented in columnar-filter.ts (9 unit tests) but NOT wired into the shipped filter path: the app's query.ts still uses a per-row scalar evaluator whose NULL-in-NOT bug the plan was written to fix. Wiring it in is a remaining in-scope item.
+- AST→text serializeQuery (real filter-chip removal), value-sampled inferRole, gzip via DecompressionStream with injectable fallback, bzip2 explicit-unsupported — landed in PR3 (16 tests).
+- Multi-chunk delimiter preservation, per-line worker error recovery with skipped-counter, LogAnalyzer mounted behind a toggle, entry-to-dataset adapter — PR4.
+- Hotel app stripped, build green, CI wired — PR5.
+- Interface: index-based `getCellAt` exists and is tested, but the hot-path consumer (GenericTable.tsx) still renders via getRowAt with per-cell Map lookups — the §3.2 integration is incomplete. The dev-only throwing `rows` getter was never implemented (Dataset has no rows field). Both are remaining in-scope items.
+
+**Beyond the plan (noted, welcome):** Tauri backend hardening (4 security fixes + 14 unit tests), insights detectors (7 security/performance detectors + rolling-baseline anomaly detection).
+
+**Process finding (for the SDLC review):** this plan was implemented while still marked DRAFT/awaiting-review. The plan-first gate exists to catch design errors before code — worth enforcing: a plan may move to IMPLEMENTED only after its review verdict is recorded, or the PR that implements it must link the approved plan revision.
+
+**Remaining in-scope items:** (1) bundle code-splitting (manualChunks + lazy insight/export) — listed in scope, not yet observed in the shipped config. (2) Wire the columnar bitset filter into query.ts (kills the live NULL-in-NOT bug) and getCellAt into GenericTable.tsx (the hot-path consumer). (3) PR2 test count correction: columnar-filter.test.ts has 9 tests, not 29.
