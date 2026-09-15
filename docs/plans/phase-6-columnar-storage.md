@@ -397,14 +397,14 @@ delete `rows` last. Do **not** do it atomically.
 
 **Design claims verified against the implementation:**
 - Columnar store with typed stores (Int32/Float64/Dict/Uint16/String), 64k-row chunks, DTO serialization — landed in PR1 (21 tests).
-- 3VL bitset filter with the NOT(FALSE AND UNKNOWN)=TRUE fix — landed in PR2 (29 tests); boolean precedence tested across shared columns.
+- 3VL bitset filter with the NOT(FALSE AND UNKNOWN)=TRUE fix — implemented in columnar-filter.ts (9 unit tests) but NOT wired into the shipped filter path: the app's query.ts still uses a per-row scalar evaluator whose NULL-in-NOT bug the plan was written to fix. Wiring it in is a remaining in-scope item.
 - AST→text serializeQuery (real filter-chip removal), value-sampled inferRole, gzip via DecompressionStream with injectable fallback, bzip2 explicit-unsupported — landed in PR3 (16 tests).
 - Multi-chunk delimiter preservation, per-line worker error recovery with skipped-counter, LogAnalyzer mounted behind a toggle, entry-to-dataset adapter — PR4.
 - Hotel app stripped, build green, CI wired — PR5.
-- Interface stability: index-based `getCellAt` hot path + loop-forbidden `getRow` + throwing `rows` getter — matches §3.2 and Gemini's inline-cache rationale.
+- Interface: index-based `getCellAt` exists and is tested, but the hot-path consumer (GenericTable.tsx) still renders via getRowAt with per-cell Map lookups — the §3.2 integration is incomplete. The dev-only throwing `rows` getter was never implemented (Dataset has no rows field). Both are remaining in-scope items.
 
 **Beyond the plan (noted, welcome):** Tauri backend hardening (4 security fixes + 14 unit tests), insights detectors (7 security/performance detectors + rolling-baseline anomaly detection).
 
 **Process finding (for the SDLC review):** this plan was implemented while still marked DRAFT/awaiting-review. The plan-first gate exists to catch design errors before code — worth enforcing: a plan may move to IMPLEMENTED only after its review verdict is recorded, or the PR that implements it must link the approved plan revision.
 
-**Remaining in-scope item:** bundle code-splitting (manualChunks + lazy insight/export) — listed in scope, not yet observed in the shipped config. Tracked as follow-up.
+**Remaining in-scope items:** (1) bundle code-splitting (manualChunks + lazy insight/export) — listed in scope, not yet observed in the shipped config. (2) Wire the columnar bitset filter into query.ts (kills the live NULL-in-NOT bug) and getCellAt into GenericTable.tsx (the hot-path consumer). (3) PR2 test count correction: columnar-filter.test.ts has 9 tests, not 29.
