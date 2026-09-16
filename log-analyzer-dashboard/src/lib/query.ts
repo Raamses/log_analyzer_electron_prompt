@@ -482,7 +482,7 @@ export function filterRows(
          'startswith': 'startswith',
          'matches': 'matches',
        };
-       if (e.op === '~=' || !(e.op in OP_MAP)) {
+       if (e.op !== 'in' && (e.op === '~=' || !(e.op in OP_MAP))) {
          return 'SCALAR';
        }
        if (e.op === 'in') {
@@ -559,6 +559,10 @@ export function filterRows(
     }
 
     const mask = columnarEvaluate(columnarTree, resolveCol, dataset.index.length);
+    // NOTE: this treats bit positions as direct row ids — valid while
+    // dataset.index is the identity [0..n-1] (true for every current
+    // construction site). If index ever becomes a non-identity view
+    // (sort/dedup-in-place), map bits through dataset.index values here.
     const out: number[] = [];
     for (let w = 0; w < mask.length; w++) {
       const word = mask[w];
