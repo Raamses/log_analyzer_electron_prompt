@@ -135,6 +135,20 @@ describe('filterRows', () => {
     const q = parseQuery('status in (404, 500)');
     expect(filterRows(rows, q.where)).toEqual([1, 2]);
   });
+  it('routes IN through the columnar bitset evaluator: NOT(in) excludes NULL rows (3VL vs scalar)', () => {
+    const ds = makeDataset([
+      { status: '200', uri: '/a', method: 'GET', ip: '1', latency: '1' },
+      { status: null, uri: '/b', method: 'GET', ip: '2', latency: '2' },
+      { status: '500', uri: '/c', method: 'GET', ip: '3', latency: '3' },
+    ]);
+    // NOT (status in [200]) under 3VL: row 0 (200 in [200]) -> excluded;
+    // row 1 (NULL status) -> UNKNOWN -> excluded (the presence mask);
+    // row 2 (500) -> NOT false -> included. The scalar path would WRONGLY include row 1.
+    const q = parseQuery('NOT (status in (200))');
+    expect(filterRows(ds, q.where)).toEqual([2]);
+  });
+
+
 
   it('filters by bare term (free text)', () => {
     const q = parseQuery('api');
