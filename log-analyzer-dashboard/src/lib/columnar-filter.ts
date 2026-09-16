@@ -180,7 +180,11 @@ function fillPositive(
   // Dict columns: resolve the string to a code once, then scan codes.
   if (col.type === 'dict') {
     const dict = col as DictColumn;
-    const code = dict.dictionary.indexOf(val);
+    let code = dict.dictionary.indexOf(val);
+    if (code < 0) {
+      const lowerVal = val.toLowerCase();
+      code = dict.dictionary.findIndex(s => s.toLowerCase() === lowerVal);
+    }
     for (let row = 0; row < n; row++) {
       const c = dict.getValue(row);
       if (c === null) continue;
@@ -188,9 +192,9 @@ function fillPositive(
       switch (op) {
         case 'eq': hit = c === code; break;
         case 'neq': hit = c !== code; break;
-        case 'contains': hit = dict.get(row)!.indexOf(val) >= 0; break;
-        case 'startswith': hit = dict.get(row)!.startsWith(val); break;
-        case 'matches': hit = new RegExp(val).test(dict.get(row)!); break;
+        case 'contains': hit = String(dict.get(row)!).toLowerCase().indexOf(String(val).toLowerCase()) >= 0; break;
+        case 'startswith': hit = String(dict.get(row)!).toLowerCase().startsWith(String(val).toLowerCase()); break;
+        case 'matches': hit = new RegExp(val, 'i').test(dict.get(row)!); break;
         default: hit = false;
       }
       if (hit) out[row >>> 5] |= 1 << (row & 31);
@@ -207,7 +211,7 @@ function fillPositive(
       case 'neq': {
         const num = Number(raw);
         const target = Number(val);
-        const eq = num === target || String(raw) === val;
+        const eq = num === target || String(raw).toLowerCase() === String(val).toLowerCase();
         hit = op === 'eq' ? eq : !eq;
         break;
       }
@@ -215,9 +219,9 @@ function fillPositive(
       case 'gte': hit = Number(raw) >= Number(val); break;
       case 'lt': hit = Number(raw) < Number(val); break;
       case 'lte': hit = Number(raw) <= Number(val); break;
-      case 'contains': hit = String(raw).indexOf(val) >= 0; break;
-      case 'startswith': hit = String(raw).startsWith(val); break;
-      case 'matches': hit = new RegExp(val).test(String(raw)); break;
+      case 'contains': hit = String(raw).toLowerCase().indexOf(String(val).toLowerCase()) >= 0; break;
+      case 'startswith': hit = String(raw).toLowerCase().startsWith(String(val).toLowerCase()); break;
+      case 'matches': hit = new RegExp(val, 'i').test(String(raw)); break;
       default: hit = false;
     }
     if (hit) out[row >>> 5] |= 1 << (row & 31);

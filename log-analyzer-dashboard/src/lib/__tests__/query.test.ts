@@ -153,8 +153,16 @@ describe('filterRows — user_agent and timestamp role aliases', () => {
     columns: uaCols,
     stores: (() => {
       const s = new Map();
-      s.set('status', { get: (i: number) => ['200', '500'][i] });
-      s.set('cs-user-agent', { get: (i: number) => ['Mozilla/5.0', 'sqlmap/1.7'][i] });
+      s.set('status', {
+        length: 2,
+        get: (i: number) => ['200', '500'][i],
+        getValue: (i: number) => [200, 500][i],
+      });
+      s.set('cs-user-agent', {
+        length: 2,
+        get: (i: number) => ['Mozilla/5.0', 'sqlmap/1.7'][i],
+        getValue: (_i: number) => null,
+      });
       return s;
     })() as any,
     rowCount: 2,
@@ -178,8 +186,16 @@ describe('filterRows — user_agent and timestamp role aliases', () => {
     columns: splitTsCols,
     stores: (() => {
       const s = new Map();
-      s.set('date', { get: (i: number) => [1700000000000, 1800000000000][i] }); // combined, real values
-      s.set('time', { get: () => '' }); // the non-primary sibling — always empty per normalize.ts
+      s.set('date', {
+        length: 2,
+        get: (i: number) => [1700000000000, 1800000000000][i],
+        getValue: (i: number) => [1700000000000, 1800000000000][i],
+      }); // combined, real values
+      s.set('time', {
+        length: 2,
+        get: () => '',
+        getValue: () => null,
+      }); // the non-primary sibling — always empty per normalize.ts
       return s;
     })() as any,
     rowCount: 2,
