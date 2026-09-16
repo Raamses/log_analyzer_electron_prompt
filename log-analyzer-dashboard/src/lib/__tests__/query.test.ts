@@ -17,6 +17,9 @@ const makeDataset = (rowObjs: Record<string, unknown>[]): Dataset => {
     const values = rowObjs.map(r => r[col.key] ?? null);
     stores.set(col.key, {
       get: (i: number) => values[i],
+      getValue: (i: number) => values[i],
+      length: values.length,
+      type: col.type === 'int' ? 'int32' : undefined,
     });
   }
   return {
@@ -132,6 +135,20 @@ describe('filterRows', () => {
     const q = parseQuery('status in (404, 500)');
     expect(filterRows(rows, q.where)).toEqual([1, 2]);
   });
+  it('routes IN through the columnar bitset evaluator: NOT(in) excludes NULL rows (3VL vs scalar)', () => {
+    const ds = makeDataset([
+      { status: '200', uri: '/a', method: 'GET', ip: '1', latency: '1' },
+      { status: null, uri: '/b', method: 'GET', ip: '2', latency: '2' },
+      { status: '500', uri: '/c', method: 'GET', ip: '3', latency: '3' },
+    ]);
+    // NOT (status in [200]) under 3VL: row 0 (200 in [200]) -> excluded;
+    // row 1 (NULL status) -> UNKNOWN -> excluded (the presence mask);
+    // row 2 (500) -> NOT false -> included. The scalar path would WRONGLY include row 1.
+    const q = parseQuery('NOT (status in (200))');
+    expect(filterRows(ds, q.where)).toEqual([2]);
+  });
+
+
 
   it('filters by bare term (free text)', () => {
     const q = parseQuery('api');
@@ -153,8 +170,16 @@ describe('filterRows — user_agent and timestamp role aliases', () => {
     columns: uaCols,
     stores: (() => {
       const s = new Map();
-      s.set('status', { get: (i: number) => ['200', '500'][i] });
-      s.set('cs-user-agent', { get: (i: number) => ['Mozilla/5.0', 'sqlmap/1.7'][i] });
+      s.set('status', {
+        length: 2,
+        get: (i: number) => ['200', '500'][i],
+        getValue: (i: number) => [200, 500][i],
+      });
+      s.set('cs-user-agent', {
+        length: 2,
+        get: (i: number) => ['Mozilla/5.0', 'sqlmap/1.7'][i],
+        getValue: (_i: number) => null,
+      });
       return s;
     })() as any,
     rowCount: 2,
@@ -178,8 +203,16 @@ describe('filterRows — user_agent and timestamp role aliases', () => {
     columns: splitTsCols,
     stores: (() => {
       const s = new Map();
-      s.set('date', { get: (i: number) => [1700000000000, 1800000000000][i] }); // combined, real values
-      s.set('time', { get: () => '' }); // the non-primary sibling — always empty per normalize.ts
+      s.set('date', {
+        length: 2,
+        get: (i: number) => [1700000000000, 1800000000000][i],
+        getValue: (i: number) => [1700000000000, 1800000000000][i],
+      }); // combined, real values
+      s.set('time', {
+        length: 2,
+        get: () => '',
+        getValue: () => null,
+      }); // the non-primary sibling — always empty per normalize.ts
       return s;
     })() as any,
     rowCount: 2,
