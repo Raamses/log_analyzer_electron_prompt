@@ -482,6 +482,9 @@ export function filterRows(
          'startswith': 'startswith',
          'matches': 'matches',
        };
+       if (e.op === '~=' || !(e.op in OP_MAP)) {
+         return 'SCALAR';
+       }
        if (e.op === 'in') {
          const values = Array.isArray(e.value) ? e.value : [e.value];
          if (values.length === 0) {

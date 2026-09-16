@@ -190,8 +190,36 @@ function fillPositive(
       if (c === null) continue;
       let hit = false;
       switch (op) {
-        case 'eq': hit = c === code; break;
-        case 'neq': hit = c !== code; break;
+        case 'eq': hit = c === code || String(dict.get(row)!).toLowerCase() === String(val).toLowerCase(); break;
+        case 'neq': hit = !(c === code || String(dict.get(row)!).toLowerCase() === String(val).toLowerCase()); break;
+        case 'gt': {
+          const num = Number(dict.get(row));
+          const target = Number(val);
+          if (Number.isNaN(num) || Number.isNaN(target)) continue;
+          hit = num > target;
+          break;
+        }
+        case 'gte': {
+          const num = Number(dict.get(row));
+          const target = Number(val);
+          if (Number.isNaN(num) || Number.isNaN(target)) continue;
+          hit = num >= target;
+          break;
+        }
+        case 'lt': {
+          const num = Number(dict.get(row));
+          const target = Number(val);
+          if (Number.isNaN(num) || Number.isNaN(target)) continue;
+          hit = num < target;
+          break;
+        }
+        case 'lte': {
+          const num = Number(dict.get(row));
+          const target = Number(val);
+          if (Number.isNaN(num) || Number.isNaN(target)) continue;
+          hit = num <= target;
+          break;
+        }
         case 'contains': hit = String(dict.get(row)!).toLowerCase().indexOf(String(val).toLowerCase()) >= 0; break;
         case 'startswith': hit = String(dict.get(row)!).toLowerCase().startsWith(String(val).toLowerCase()); break;
         case 'matches': hit = new RegExp(val, 'i').test(dict.get(row)!); break;
