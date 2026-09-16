@@ -1,6 +1,7 @@
 // @paths lib/query
 
 import type { Dataset } from './types';
+import { evaluate as columnarEvaluate, type ColumnarExpr, type ColumnResolver, type QueryLeaf } from './columnar-filter';
 /**
  * KQL subset parser — converts query text into a filter AST.
  *
@@ -445,7 +446,83 @@ export function filterRows(
   }
 
   const resolve = (name: string): string | null => fieldMap.get(name.toLowerCase()) ?? null;
+ const resolveCol: ColumnResolver = (name: string) => { const key = resolve(name); if (!key) return null; const col = stores.get(key); return col ? { col, key } : null; };
+ const toColumnar = (e: QueryExpr): ColumnarExpr | 'SCALAR' => {
+   switch (e.type) {
+     case 'bareTerm':
+       return 'SCALAR';
+     case 'not': {
+       const inner = toColumnar(e.expr);
+       if (inner === 'SCALAR') return 'SCALAR';
+       return { type: 'not', expr: inner };
+     }
+     case 'and': {
+       const left = toColumnar(e.left);
+       const right = toColumnar(e.right);
+       if (left === 'SCALAR' || right === 'SCALAR') return 'SCALAR';
+       return { type: 'and', left, right };
+     }
+     case 'or': {
+       const left = toColumnar(e.left);
+       const right = toColumnar(e.right);
+       if (left === 'SCALAR' || right === 'SCALAR') return 'SCALAR';
+       return { type: 'or', left, right };
+     }
+     case 'comparison': {
+       const OP_MAP: Record<string, QueryLeaf['op']> = {
+         '=': 'eq',
+         '==': 'eq',
+         '!=': 'neq',
+         '<>': 'neq',
+         '>': 'gt',
+         '>=': 'gte',
+         '<': 'lt',
+         '<=': 'lte',
+         'contains': 'contains',
+         'startswith': 'startswith',
+         'matches': 'matches',
+       };
+       if (e.op === 'in') {
+         const values = Array.isArray(e.value) ? e.value : [e.value];
+         if (values.length === 0) {
+           // empty array -> a leaf that matches nothing
+           return {
+             type: 'leaf',
+             leaf: {
+               columnKey: '__nonexistent_empty_in__',
+               op: 'eq',
+               value: '',
+               negated: true,
+             },
+           };
+         }
+         const leaves: ColumnarExpr[] = values.map((v) => ({
+           type: 'leaf',
+           leaf: {
+             columnKey: resolve(e.field) ?? e.field,
+             op: 'eq',
+             value: String(v),
+           },
+         }));
+         return leaves.reduce((acc, curr) => ({
+           type: 'or',
+           left: acc,
+           right: curr,
+         }));
+       }
+       return {
+         type: 'leaf',
+         leaf: {
+           columnKey: resolve(e.field) ?? e.field,
+            op: OP_MAP[e.op] ?? 'eq',
+            value: String(e.value),
+          },
+        };
+      }
+    }
+  };
 
+  // kept for bareTerm fallback until columnar bareTerm support lands
   const evalExpr = (e: QueryExpr, rowIdx: number): boolean => {
     switch (e.type) {
       case 'and': return evalExpr(e.left, rowIdx) && evalExpr(e.right, rowIdx);
@@ -472,9 +549,22 @@ export function filterRows(
     }
   };
 
-  const idxArray = Array.from(dataset.index);
-  return idxArray.filter((rowIdx) => evalExpr(expr, rowIdx));
-}
+    const columnarTree = toColumnar(expr);
+    if (columnarTree === 'SCALAR') {
+      const idxArray = Array.from(dataset.index);
+      return idxArray.filter((rowIdx) => evalExpr(expr, rowIdx));
+    }
+
+    const mask = columnarEvaluate(columnarTree, resolveCol, dataset.index.length);
+    const out: number[] = [];
+    for (let w = 0; w < mask.length; w++) {
+      const word = mask[w];
+      for (let b = 0; b < 32; b++) {
+        if (word & (1 << b)) out.push(w * 32 + b);
+      }
+    }
+    return out;
+  }
 
 function evalComparison(cell: unknown, op: ComparisonOp, value: string | number | (string | number)[]): boolean {
   if (op === 'in') {

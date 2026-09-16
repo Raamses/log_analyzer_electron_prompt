@@ -17,6 +17,9 @@ const makeDataset = (rowObjs: Record<string, unknown>[]): Dataset => {
     const values = rowObjs.map(r => r[col.key] ?? null);
     stores.set(col.key, {
       get: (i: number) => values[i],
+      getValue: (i: number) => values[i],
+      length: values.length,
+      type: col.type === 'int' ? 'int32' : undefined,
     });
   }
   return {
