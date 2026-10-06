@@ -9,6 +9,10 @@
 # - The known unit baseline, and only it, counts as passed: the step is reported BASELINE and does
 #   not make the run exit 1. Any other failing test, or a different name, is a failure.
 # - Extra artifacts beside the required ones: npm-ci.log, tsc.log, build.log, report.md.
+# - Step 3 runs `npx vitest run --maxWorkers=4`. With vitest's default (one worker per core, 22 on
+#   the Windows box) every worker timed out and no test ran, on both 2026-10-06 runs; with 4 the
+#   suite runs (252 passed, 1 failed = the baseline).
+# - CI=true, not CI=1: the tauri CLI rejects CI=1.
 #
 # Deliver it to claude-win via `mailbox --to claude-win`. Do not guess the commands —
 # implement exactly what is written here, or amend this spec and say so in the reply.

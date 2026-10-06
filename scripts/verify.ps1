@@ -136,7 +136,10 @@ function Invoke-Step([int]$Number, [string]$Command, [string]$LogName) {
 # ---------------------------------------------------------------- the six steps
 Invoke-Step 1 'npm ci' 'npm-ci.log' | Out-Null
 Invoke-Step 2 'npx tsc -b' 'tsc.log' | Out-Null
-$unit = Invoke-Step 3 'npx vitest run' 'unit.log'
+# --maxWorkers=4 (spec amendment): with vitest's default of one worker per core (22 here), every worker
+# timed out ("Timeout waiting for worker to respond", no test run) on both 2026-10-06 runs; with 4 the
+# suite runs: 252 passed, 1 failed (the baseline).
+$unit = Invoke-Step 3 'npx vitest run --maxWorkers=4' 'unit.log'
 
 # Failing tests by name; the baseline (and only it) is not a regression.
 $failing = @()
@@ -180,6 +183,13 @@ $bundleFile = Join-Path $Out 'bundle-path.txt'
 if ($bundles.Count -gt 0) { Set-Content -LiteralPath $bundleFile -Value $bundles -Encoding UTF8 }
 else { Set-Content -LiteralPath $bundleFile -Value '(no installer produced by this run)' -Encoding UTF8 }
 $shellVerified = ($tauri.Exit -eq 0 -and $bundles.Count -gt 0)
+# Tell "the exe did not build" apart from "the exe built, the installer did not" (run 2: missing .ico).
+if ($tauri.Exit -ne 0 -and (Test-Path -LiteralPath $tauri.Log)) {
+  $built = Select-String -LiteralPath $tauri.Log -Pattern 'Finished `release` profile' -SimpleMatch -Quiet
+  $why = @(Select-String -LiteralPath $tauri.Log -Pattern 'failed to bundle project|^error' | Select-Object -Last 1 | ForEach-Object { $_.Line.Trim() })
+  if ($built) { $tauri.Note = 'release exe built; bundling failed' } else { $tauri.Note = 'the release build did not finish' }
+  if ($why.Count -gt 0) { $tauri.Note = $tauri.Note + ': ' + $why[0] }
+}
 
 # ---------------------------------------------------------------- report
 $failed = @($Results | Where-Object { $_.Status -eq 'FAIL' })
