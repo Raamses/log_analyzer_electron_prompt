@@ -99,8 +99,9 @@ function Write-Log([string]$Text) {
 Write-Log "verify.ps1 - $RepoRoot"
 Write-Log "branch $branch @ $sha | node $nodeVersion | $cargoVersion | $(Get-Date -Format 's')"
 
-# Plain output for the parsers below.
-$env:CI = '1'
+# Plain output for the parsers below. CI must be 'true': the tauri CLI rejects CI=1 ("invalid value
+# '1' for '--ci'"), which failed step 5 in 9 s on the first run (2026-10-06).
+$env:CI = 'true'
 $env:NO_COLOR = '1'
 $env:FORCE_COLOR = '0'
 
@@ -153,6 +154,11 @@ $baselineHit = @($failing | Where-Object { $unexpected -notcontains $_ })
 if ($unit.Exit -ne 0 -and $failing.Count -gt 0 -and $unexpected.Count -eq 0) {
   $unit.Status = 'BASELINE'
   $unit.Note = "only the known baseline failed ($($baselineHit.Count))"
+}
+elseif ($unit.Exit -ne 0 -and $failing.Count -eq 0) {
+  # vitest failed without naming a test: it never ran one (first run: 15 worker timeouts, "no tests")
+  $unhandled = @(Select-String -LiteralPath $unit.Log -Pattern 'Unhandled Error' -SimpleMatch).Count
+  $unit.Note = "no test reported as failing; vitest did not run the suite ($unhandled unhandled errors - see unit.log)"
 }
 elseif ($unit.Exit -ne 0) {
   $unit.Note = "$($failing.Count) failing, $($unexpected.Count) not in the baseline"
