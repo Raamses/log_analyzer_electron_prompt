@@ -1,8 +1,14 @@
 # verify.ps1 — SPECIFICATION for claude-win (Windows)
 #
-# STATUS: SPEC ONLY — not implemented. AmosBot (Pi) authored this on 2026-10-05; the
-# implementation belongs to claude-win, which owns the Windows toolchain. Pi has no
-# `cargo`/`rustc` (verified 2026-10-05), so it cannot run any of this.
+# STATUS: IMPLEMENTED in scripts/verify.ps1 by claude-win on 2026-10-06. AmosBot (Pi) authored
+# this spec on 2026-10-05; the Pi has no `cargo`/`rustc`, so it cannot run any of this.
+#
+# Amendments made while implementing (claude-win, 2026-10-06):
+# - "Wrong branch" (exit 2) means HEAD does not CONTAIN origin/feat-log-analyzer-electron. A PR
+#   branch built on the trunk passes; `main`, or a branch older than the trunk, is refused.
+# - The known unit baseline, and only it, counts as passed: the step is reported BASELINE and does
+#   not make the run exit 1. Any other failing test, or a different name, is a failure.
+# - Extra artifacts beside the required ones: npm-ci.log, tsc.log, build.log, report.md.
 #
 # Deliver it to claude-win via `mailbox --to claude-win`. Do not guess the commands —
 # implement exactly what is written here, or amend this spec and say so in the reply.
