@@ -1,0 +1,22 @@
+   Compiling log-analyzer v0.1.0 (D:\GeminiCLIProjects\la-harness-verify\log-analyzer-dashboard\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.32s
+     Running unittests src\main.rs (src-tauri\target\debug\deps\log_analyzer-1f327a7a523e5b14.exe)
+
+running 14 tests
+test tests::registry_new_is_empty ... ok
+test tests::registry_keeps_fresh ... ok
+test tests::registry_evicts_stale ... ok
+test tests::validate_rejects_nonexistent ... ok
+test tests::validate_rejects_dir ... ok
+test tests::close_file_frees_entry ... ok
+test tests::open_and_read_file ... ok
+test tests::read_beyond_eof ... ok
+test tests::validate_accepts_uppercase ... ok
+test tests::zero_byte_file ... ok
+test tests::read_at_offset ... ok
+test tests::validate_accepts_log ... ok
+test tests::registry_at_capacity ... ok
+test tests::validate_rejects_exe ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.99s
+

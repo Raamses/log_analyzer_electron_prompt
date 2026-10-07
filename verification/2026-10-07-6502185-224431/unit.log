@@ -1,0 +1,467 @@
+npm notice run log-analyzer-dashboard@0.0.0 npx
+npm notice run vitest run --maxWorkers=4
+
+ RUN  v4.0.9 D:/GeminiCLIProjects/la-harness-verify/log-analyzer-dashboard
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ ✓ src/lib/__tests__/dialect.test.ts (56 tests) 31ms
+ ✓ src/lib/__tests__/query.test.ts (25 tests) 19ms
+ ✓ src/lib/__tests__/insights.test.ts (18 tests) 150ms
+ ✓ src/components/__tests__/GenericTable.test.tsx (22 tests) 520ms
+ ✓ src/lib/__tests__/schema.test.ts (30 tests) 19ms
+ ✓ src/lib/__tests__/normalize.test.ts (26 tests) 13ms
+ ✓ src/lib/__tests__/merge-datasets.test.ts (9 tests) 69ms
+ ✓ src/lib/__tests__/columnstore.test.ts (21 tests) 23ms
+ ✓ src/lib/__tests__/columnar-filter.test.ts (9 tests) 15ms
+ ✓ src/__tests__/App.test.tsx (4 tests) 216ms
+ ✓ src/lib/__tests__/export.test.ts (9 tests) 13ms
+ ❯ src/components/__tests__/LogAnalyzer.test.tsx (5 tests | 1 failed) 2079ms
+     ✓ all rows visible before any filter is applied 122ms
+     × typing a query into the query bar actually filters the rendered rows 1316ms
+     ✓ clearing the query restores all rows 295ms
+     ✓ command palette "Hide <column>" actually removes the column from the table 116ms
+     ✓ command palette "Show all columns" restores a hidden column 226ms
+ ✓ src/lib/__tests__/columnar-dataset.test.ts (7 tests) 11ms
+ ✓ src/lib/__tests__/query-serialize.test.ts (8 tests) 10ms
+ ✓ src/lib/__tests__/decompress.test.ts (4 tests) 32ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/__tests__/LogAnalyzer.test.tsx > LogAnalyzer > typing a query into the query bar actually filters the rendered rows
+TestingLibraryElementError: Unable to find an element with the text: /api/missing. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center justify-between"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs rounded border border-slate-700 cursor-pointer"[39m
+            [33mtitle[39m=[32m"Save current view"[39m
+          [36m>[39m
+            [0mSave[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"relative"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 cursor-pointer transition-colors"[39m
+            [36m>[39m
+              [0mExport ▾[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 cursor-pointer"[39m
+          [36m>[39m
+            [0m⌘K[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2 px-4 py-2 bg-slate-900/60 border-b border-slate-900 ring-1 ring-indigo-500/50"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-indigo-400 text-xs font-mono"[39m
+          [36m>[39m
+            [0m❯[0m
+          [36m</span>[39m
+          [36m<input[39m
+            [33mautocomplete[39m=[32m"off"[39m
+            [33mclass[39m=[32m"flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-600 outline-none font-mono"[39m
+            [33mplaceholder[39m=[32m"status >= 500 AND uri contains \"/api/\" | sort by latency desc"[39m
+            [33mspellcheck[39m=[32m"false"[39m
+            [33mtype[39m=[32m"text"[39m
+            [33mvalue[39m=[32m"status = 404"[39m
+          [36m/>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"text-slate-500 hover:text-slate-300 text-xs cursor-pointer"[39m
+            [33mtitle[39m=[32m"Clear"[39m
+          [36m>[39m
+            [0m✕[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2 px-4 py-2 bg-slate-900/30 border-b border-slate-900 flex-wrap"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-xs text-slate-500 font-semibold"[39m
+        [36m>[39m
+          [0mFilters:[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs rounded cursor-pointer hover:bg-indigo-500/20 transition-colors"[39m
+          [33mtitle[39m=[32m"Click to remove"[39m
+        [36m>[39m
+          [0mstatus = 404[0m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-indigo-500 hover:text-indigo-300"[39m
+          [36m>[39m
+            [0m✕[0m
+          [36m</span>[39m
+        [36m</span>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"text-xs text-slate-500 hover:text-slate-300 cursor-pointer"[39m
+        [36m>[39m
+          [0mClear all[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex gap-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex-1 min-w-0"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col h-full"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bg-slate-900/30 border-b border-slate-900 px-4 py-2 flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-xs text-slate-500"[39m
+              [36m>[39m
+                [0m3[0m
+                [0m rows[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex-1"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-1 overflow-hidden"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex-1 overflow-auto"[39m
+                [33mdata-testid[39m=[32m"table-scroll-container"[39m
+                [33mstyle[39m=[32m"height: 500px;"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mstyle[39m=[32m"width: 420px;"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"bg-slate-900/60 border-b border-slate-900 text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 flex items-center sticky top-0 z-10"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"flex items-center gap-1 group relative cursor-pointer select-none min-w-0 overflow-hidden"[39m
+                      [33mdata-testid[39m=[32m"table-header-cell"[39m
+                      [33mstyle[39m=[32m"width: 140px;"[39m
+                    [36m>[39m
+                      [36m<span[39m
+                        [33mclass[39m=[32m"truncate"[39m
+                        [33mtitle[39m=[32m"Time"[39m
+                      [36m>[39m
+                        [0mTime[0m
+                      [36m</span>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize bg-transparent hover:bg-indigo-500/30 transition-colors"[39m
+                      [36m/>[39m
+                    [36m</div>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"flex items-center gap-1 group relative cursor-pointer select-none min-w-0 overflow-hidden"[39m
+                      [33mdata-testid[39m=[32m"table-header-cell"[39m
+                      [33mstyle[39m=[32m"width: 140px;"[39m
+                    [36m>[39m
+                      [36m<span[39m
+                        [33mclass[39m=[32m"truncate"[39m
+                        [33mtitle[39m=[32m"Status"[39m
+                      [36m>[39m
+                        [0mStatus[0m
+                      [36m</span>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize bg-transparent hover:bg-indigo-500/30 transition-colors"[39m
+                      [36m/>[39m
+                    [36m</div>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"flex items-center gap-1 group relative cursor-pointer select-none min-w-0 overflow-hidden"[39m
+                      [33mdata-testid[39m=[32m"table-header-cell"[39m
+                      [33mstyle[39m=[32m"width: 140px;"[39m
+                    [36m>[39m
+                      [36m<span[39m
+                        [33mclass[39m=[32m"truncate"[39m
+                        [33mtitle[39m=[32m"URI"[39m
+                      [36m>[39m
+                        [0mURI[0m
+                      [36m</span>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize bg-transparent hover:bg-indigo-500/30 transition-colors"[39m
+                      [36m/>[39m
+                    [36m</div>[39m
+                  [36m</div>[39m
+                  [36m<div[39m
+                    [33mstyle[39m=[32m"height: 0px; position: relative;"[39m
+                  [36m/>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bg-slate-900/30 border-t border-slate-900 px-4 py-2.5 text-xs text-slate-500 flex justify-between font-sans font-semibold"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0m0[0m
+                [0m entries[0m
+              [36m</span>[39m
+              [36m<span>[39m
+                [0m3[0m
+                [0m columns[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"w-72 flex-shrink-0 bg-slate-950 rounded-xl border border-slate-900 overflow-hidden"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 text-center text-xs text-slate-600"[39m
+          [36m>[39m
+            [0mNo anomalies detected[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-4"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center justify-between"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs rounded border border-slate-700 cursor-pointer"[39m
+            [33mtitle[39m=[32m"Save current view"[39m
+          [36m>[39m
+            [0mSave[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"relative"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 cursor-pointer transition-colors"[39m
+            [36m>[39m
+              [0mExport ▾[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 cursor-pointer"[39m
+          [36m>[39m
+            [0m⌘K[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-2 px-4 py-2 bg-slate-900/60 border-b border-slate-900 ring-1 ring-indigo-500/50"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-indigo-400 text-xs font-mono"[39m
+          [36m>[39m
+            [0m❯[0m
+          [36m</span>[39m
+          [36m<input[39m
+            [33mautocomplete[39m=[32m"off"[39m
+            [33mclass[39m=[32m"flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-600 outline-none font-mono"[39m
+            [33mplaceholder[39m=[32m"status >= 500 AND uri contains \"/api/\" | sort by latency desc"[39m
+            [33mspellcheck[39m=[32m"false"[39m
+            [33mtype[39m=[32m"text"[39m
+            [33mvalue[39m=[32m"status = 404"[39m
+          [36m/>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"text-slate-500 hover:text-slate-300 text-xs cursor-pointer"[39m
+            [33mtitle[39m=[32m"Clear"[39m
+          [36m>[39m
+            [0m✕[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2 px-4 py-2 bg-slate-900/30 border-b border-slate-900 flex-wrap"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-xs text-slate-500 font-semibold"[39m
+        [36m>[39m
+          [0mFilters:[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs rounded cursor-pointer hover:bg-indigo-500/20 transition-colors"[39m
+          [33mtitle[39m=[32m"Click to remove"[39m
+        [36m>[39m
+          [0mstatus = 404[0m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-indigo-500 hover:text-indigo-300"[39m
+          [36m>[39m
+            [0m✕[0m
+          [36m</span>[39m
+        [36m</span>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"text-xs text-slate-500 hover:text-slate-300 cursor-pointer"[39m
+        [36m>[39m
+          [0mClear all[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex gap-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex-1 min-w-0"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col h-full"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bg-slate-900/30 border-b border-slate-900 px-4 py-2 flex items-center gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-xs text-slate-500"[39m
+              [36m>[39m
+                [0m3[0m
+                [0m rows[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex-1"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-1 overflow-hidden"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex-1 overflow-auto"[39m
+                [33mdata-testid[39m=[32m"table-scroll-container"[39m
+                [33mstyle[39m=[32m"height: 500px;"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mstyle[39m=[32m"width: 420px;"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"bg-slate-900/60 border-b border-slate-900 text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 flex items-center sticky top-0 z-10"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"flex items-center gap-1 group relative cursor-pointer select-none min-w-0 overflow-hidden"[39m
+                      [33mdata-testid[39m=[32m"table-header-cell"[39m
+                      [33mstyle[39m=[32m"width: 140px;"[39m
+                    [36m>[39m
+                      [36m<span[39m
+                        [33mclass[39m=[32m"truncate"[39m
+                        [33mtitle[39m=[32m"Time"[39m
+                      [36m>[39m
+                        [0mTime[0m
+                      [36m</span>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize bg-transparent hover:bg-indigo-500/30 transition-colors"[39m
+                      [36m/>[39m
+                    [36m</div>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"flex items-center gap-1 group relative cursor-pointer select-none min-w-0 overflow-hidden"[39m
+                      [33mdata-testid[39m=[32m"table-header-cell"[39m
+                      [33mstyle[39m=[32m"width: 140px;"[39m
+                    [36m>[39m
+                      [36m<span[39m
+                        [33mclass[39m=[32m"truncate"[39m
+                        [33mtitle[39m=[32m"Status"[39m
+                      [36m>[39m
+                        [0mStatus[0m
+                      [36m</span>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize bg-transparent hover:bg-indigo-500/30 transition-colors"[39m
+                      [36m/>[39m
+                    [36m</div>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"flex items-center gap-1 group relative cursor-pointer select-none min-w-0 overflow-hidden"[39m
+                      [33mdata-testid[39m=[32m"table-header-cell"[39m
+                      [33mstyle[39m=[32m"width: 140px;"[39m
+                    [36m>[39m
+                      [36m<span[39m
+                        [33mclass[39m=[32m"truncate"[39m
+                        [33mtitle[39m=[32m"URI"[39m
+                      [36m>[39m
+                        [0mURI[0m
+                      [36m</span>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize bg-transparent hover:bg-indigo-500/30 transition-colors"[39m
+                      [36m/>[39m
+                    [36m</div>[39m
+                  [36m</div>[39m
+                  [36m<div[39m
+                    [33mstyle[39m=[32m"height: 0px; position: relative;"[39m
+                  [36m/>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bg-slate-900/30 border-t border-slate-900 px-4 py-2.5 text-xs text-slate-500 flex justify-between font-sans font-semibold"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0m0[0m
+                [0m entries[0m
+              [36m</span>[39m
+              [36m<span>[39m
+                [0m3[0m
+                [0m columns[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"w-72 flex-shrink-0 bg-slate-950 rounded-xl border border-slate-900 overflow-hidden"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"p-4 text-center text-xs text-slate-600"[39m
+          [36m>[39m
+            [0mNo anomalies detected[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/components/__tests__/LogAnalyzer.test.tsx:50:25
+     48|     await user.type(input, 'status = 404');
+     49| 
+     50|     expect(await screen.findByText('/api/missing')).toBeTruthy();
+       |                         ^
+     51|     expect(screen.queryByText('/api/search')).toBeNull();
+     52|     expect(screen.queryByText('/api/health')).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 14 passed (15)
+      Tests  1 failed | 252 passed (253)
+   Start at  22:47:50
+   Duration  40.26s (transform 3.23s, setup 11.43s, collect 8.00s, tests 3.22s, environment 101.57s, prepare 1.86s)
+

@@ -1,0 +1,2 @@
+D:\GeminiCLIProjects\la-harness-verify\log-analyzer-dashboard\src-tauri\target\release\bundle\msi\log-analyzer_0.1.0_x64_en-US.msi
+D:\GeminiCLIProjects\la-harness-verify\log-analyzer-dashboard\src-tauri\target\release\bundle\nsis\log-analyzer_0.1.0_x64-setup.exe
