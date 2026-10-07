@@ -21,10 +21,13 @@ cd "$(dirname "$0")/../log-analyzer-dashboard" || { echo "FATAL: cannot enter da
 QUICK=0
 [ "${1:-}" = "--quick" ] && QUICK=1
 
-# Recorded baseline on feat-log-analyzer-electron @ 10aba18 (2026-10-05).
-# 1 pre-existing unit failure, byte-identical on this branch and the trunk —
-# it is NOT a session regression. New failures still block you.
-UNIT_FAILING_BASELINE=1
+# Known failures that do not fail the run, each OWNED by an open bug note (rubric R13), matched by
+# file + exact test name as in verify.ps1. A count was not enough: fixing the baseline test and breaking
+# another one printed SANITY GREEN (PR #23 review F1.2). Format "file|test name". Keep this list identical
+# to verify.ps1 and the spec's "Known baseline"; delete an entry when its fix lands.
+BASELINE_TESTS=(
+  "src/components/__tests__/LogAnalyzer.test.tsx|typing a query into the query bar actually filters the rendered rows"  # vault/bugs/2026-10-07-query-bar-filter-regression.md
+)
 
 FAILED=(); RESULTS=()
 ok()  { printf '\033[32m[PASS]\033[0m %s\n' "$1"; RESULTS+=("PASS  $1"); }
@@ -54,11 +57,24 @@ if [ -z "$UNIT_FAILED" ] && [ "$HAS_SUMMARY" -eq 0 ]; then
   printf '%s' "$UNIT_PLAIN" | tail -25
 else
   UNIT_FAILED=${UNIT_FAILED:-0}
-  if [ "$UNIT_FAILED" -le "$UNIT_FAILING_BASELINE" ]; then
-    ok "unit ($UNIT_FAILED failing <= baseline $UNIT_FAILING_BASELINE)"
+  # Failing tests by name: vitest's summary lists each as " FAIL  <file> > <suite> > <test>".
+  mapfile -t FAIL_LINES < <(printf '%s\n' "$UNIT_PLAIN" | grep -E '^ *FAIL +' \
+    | sed -E 's/^ *FAIL +//; s/ +[0-9.]+ ?m?s$//' | sort -u)
+  UNEXPECTED=()
+  for line in "${FAIL_LINES[@]}"; do
+    known=0
+    for b in "${BASELINE_TESTS[@]}"; do
+      case "$line" in *"${b%%|*}"*"${b#*|}") known=1 ;; esac
+    done
+    [ "$known" -eq 1 ] || UNEXPECTED+=("$line")
+  done
+  if [ "$UNIT_FAILED" -gt 0 ] && [ "${#FAIL_LINES[@]}" -eq 0 ]; then
+    bad "unit ($UNIT_FAILED failing, but no FAIL line could be read: counted as new failures)"
+  elif [ "${#UNEXPECTED[@]}" -eq 0 ]; then
+    ok "unit ($UNIT_FAILED failing, all in the owned baseline)"
   else
-    bad "unit ($UNIT_FAILED failing > baseline $UNIT_FAILING_BASELINE — NEW failures)"
-    printf '%s' "$UNIT_PLAIN" | grep -E '^ FAIL ' | head -20
+    bad "unit (${#UNEXPECTED[@]} failing outside the owned baseline)"
+    printf '  %s\n' "${UNEXPECTED[@]}" | head -20
   fi
 fi
 

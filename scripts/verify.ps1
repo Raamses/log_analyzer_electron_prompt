@@ -42,10 +42,13 @@ param(
 $ErrorActionPreference = 'Continue'
 $Trunk = 'origin/feat-log-analyzer-electron'
 
-# Known baseline (spec): failing tests that are not regressions. File fragment + test name.
+# Known failures that do not fail the run, each OWNED by an open bug note (review F1.1, rubric R13: a pinned
+# failure is a deferral and needs an owner). Matched by file + exact name. Remove an entry when its fix lands.
+# Keep this list identical to scripts/verify.sh and the spec's "Known baseline".
 $Baseline = @(
-  @{ File = 'src/components/__tests__/LogAnalyzer.test.tsx'
-     Name = 'typing a query into the query bar actually filters the rendered rows' }
+  @{ File  = 'src/components/__tests__/LogAnalyzer.test.tsx'
+     Name  = 'typing a query into the query bar actually filters the rendered rows'
+     Owner = 'vault/bugs/2026-10-07-query-bar-filter-regression.md' }   # a live regression of the 09-01 fix
 )
 
 function Stop-Harness([string]$Message) {
@@ -167,6 +170,8 @@ elseif ($unit.Exit -ne 0) {
   $unit.Note = "$($failing.Count) failing, $($unexpected.Count) not in the baseline"
 }
 
+# Step 5's beforeBuildCommand runs `npm run build` again, so the frontend builds twice. That is on purpose
+# (spec): step 4 on its own pins a frontend break to step 4, rather than leaving it buried inside step 5.
 Invoke-Step 4 'npm run build' 'build.log' | Out-Null
 $tauriStart = Get-Date
 $tauri = Invoke-Step 5 'npx tauri build' 'tauri-build.log'

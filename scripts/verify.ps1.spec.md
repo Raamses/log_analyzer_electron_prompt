@@ -61,10 +61,12 @@ verification/YYYY-MM-DD-<short-sha>/
 exists, suffix with the run timestamp — do not clobber a prior run.
 
 ## Known baseline (do not report these as new failures)
-- Unit: 1 pre-existing failure —
-  `src/components/__tests__/LogAnalyzer.test.tsx > typing a query into the query bar actually
-  filters the rendered rows`. Verified byte-identical on `fix/wire-3vl-filter` and on
-  `feat-log-analyzer-electron` @ `10aba18` (2026-10-05). Report it as BASELINE, not a regression.
+- Every entry is a known failure **owned by an open bug note**. It is a deferral (rubric R13), not "fine".
+- Unit: 1 failure: `src/components/__tests__/LogAnalyzer.test.tsx > typing a query into the query bar
+  actually filters the rendered rows`. **This is a live regression of the 2026-09-01 fix** (that note cites
+  this test as the proof). Owner: `vault/bugs/2026-10-07-query-bar-filter-regression.md`. It fails on the
+  trunk @ 3792a2a and on `fix/wire-3vl-filter`. Report it as BASELINE until the fix lands, then delete this
+  entry and the matching entries in verify.ps1 and verify.sh.
 - Report the failing-test **count** and the failing-test **names**; do not treat an equal count
   with different names as green.
 

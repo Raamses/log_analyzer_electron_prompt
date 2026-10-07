@@ -25,7 +25,7 @@
 | Where | Command | Artifact |
 |---|---|---|
 | Pi (sanity, fast) | `scripts/verify.sh` | stdout + date in the commit |
-| Windows (authoritative) | `scripts/verify.ps1` | `verification/<YYYY-MM-DD>-<sha>.{log,png}` |
+| Windows (authoritative) | `scripts/verify.ps1` | the directory `verification/<YYYY-MM-DD>-<sha>/`: verify.log, report.md, one log per step, bundle-path.txt (layout in `scripts/verify.ps1.spec.md`) |
 
 - All verification artifacts land in **`verification/`**, dated, never overwritten.
 - Pi `verify.sh` is a **sanity gate only** (tsc + vitest). It cannot prove the desktop shell,

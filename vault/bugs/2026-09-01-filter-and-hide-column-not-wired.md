@@ -1,5 +1,9 @@
 # Bug Found — query filter and command-palette "hide column" did nothing
 
+> **REOPENED 2026-10-07 for the query-bar half.** The integration test this note cites as proof of the fix
+> (*typing a query into the query bar actually filters the rendered rows*) fails again on the trunk @ 3792a2a.
+> See `2026-10-07-query-bar-filter-regression.md`. The fix described below was real; something later undid it.
+
 Ram reported: typing a query into the query bar doesn't filter the table, and
 choosing "Hide Time" from the command palette (⌘K) doesn't hide the column.
 
